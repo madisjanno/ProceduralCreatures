@@ -37,7 +37,6 @@
 			}
 		
 			function onLoad() { 
-                console.log(cdt2d);
 				var canvasContainer = document.getElementById('myCanvasContainer');
                 document.body.appendChild( stats.dom );
 				var width = 800; 
@@ -68,9 +67,49 @@
                     */
                 ];
                 
-                for (var i = metaballs.length; i < 20; i++) {
-                    metaballs.push(new THREE.Vector3(-200.0+10.0*i, 0.0, 10.0+i));
+                var bone = new THREE.Bone();
+                    bone.thickness = 10;
+                var b2 = new THREE.Bone();
+                    b2.thickness = 20;
+                    bone.add(b2);
+                    b2.position.y = 100;
+                
+                var b3 = new THREE.Bone();
+                    b3.thickness = 5;
+                    b2.add(b3);
+                    b3.position.x = 150;
+                    b3.position.y = 100;
+                
+                
+                var b31 = new THREE.Bone();
+                    b31.thickness = 10;
+                    b3.add(b31);
+                    b31.position.y = -100;
+                
+                
+                var b4 = new THREE.Bone();
+                    b4.thickness = 5;
+                    b2.add(b4);
+                    b4.position.x = -150;
+                    b4.position.y = 100;
+                
+                
+                var b41 = new THREE.Bone();
+                    b41.thickness = 10;
+                    b4.add(b41);
+                    b41.position.y = -100;
+                
+                generateMetaballs(metaballs, bone);
+                
+                for (var i = 0; i < 20; i++) {
+                    metaballs[i].y += 1;
                 }
+                
+                console.log(metaballs);
+                
+                // DEBUG DISPLAY
+                fragmentShader = fragmentShader.replace("METABALL_COUNT", metaballs.length).replace("METABALL_COUNT", metaballs.length);
+                console.log(fragmentShader);
                 
                 var geometry = new THREE.PlaneBufferGeometry( 500, 500 );
                 var material = new THREE.ShaderMaterial({
@@ -84,11 +123,44 @@
                 var plane = new THREE.Mesh( geometry, material );
                 scene.add( plane );
                 
-                lines = new THREE.LineSegments( new THREE.Geometry, new THREE.LineBasicMaterial({color: 0xffffffff}) );
-                scene.add(lines);
                 
-                triangles = new THREE.Mesh( new THREE.Geometry, new THREE.MeshBasicMaterial({color: 0xffffffff, wireframe: true}) );
-                scene.add(triangles);
+                /* ------------------------------------- */
+                /*
+                bone = new THREE.Bone();
+                var b2 = new THREE.Bone();
+                bone.add(b2);
+                b2.position.y = 100;
+                var b3 = new THREE.Bone();
+                b2.add(b3);
+                b3.position.y = 100;
+                
+                var cuts = 5;
+                var geometry = new THREE.PlaneGeometry( 200, 200, cuts, cuts );
+                
+                for (var i = 0; i < (cuts+1)*(cuts+1); i++) {
+                    var index = 0;
+                    geometry.skinIndices.push( new THREE.Vector4( 1, 0, 0, 0 ) );
+                    geometry.skinWeights.push( new THREE.Vector4( 1, 0, 0, 0 ) );
+                }
+                console.log(geometry)
+                
+                var skeletonmesh = new THREE.SkinnedMesh(geometry, new THREE.MeshBasicMaterial({color: 0xffffffff, wireframe: true, skinning:true}));
+                var skeleton = new THREE.Skeleton([bone, b2, b3]);
+                skeletonmesh.add( bone );
+                skeletonmesh.bind(skeleton);
+                var helper = new THREE.SkeletonHelper( skeletonmesh );
+                helper.material.linewidth = 20;
+                
+                bone.rotation.z = 0.0;
+                b2.rotation.z = 0.3;
+                b2.position.y = 50;
+                
+                scene.add(helper);
+                scene.add(skeletonmesh);
+                
+                generateMetaballs(metaballs, bone);
+                */
+                /* ------------------------------------- */
                 
 				draw();
 				
@@ -118,6 +190,7 @@
                         wireframeStatusContainer.children[1].innerHTML = wireframe.toString();
 					}
                     if (event.keyCode == 32) { //Space
+                        console.log(lines.geometry.vertices)
                         paused = !paused;
 					}
 				}, false);
@@ -132,11 +205,12 @@
                 var dt = clock.getDelta();
                 
                 if (!paused) {
-                    for (var i = 0; i < 20; i++) {
-                        metaballs[i].applyAxisAngle(new THREE.Vector3(0.0, 0.0, 1.0),dt/(i+1));
+                    /*
+                    for (var i = 0; i < metaballs.length; i++) {
+                        metaballs[i].applyAxisAngle(new THREE.Vector3(0.0, 0.0, 1.0),dt/(1));
                     }
-
-                    var polygon = generatePolygon();
+                    */
+                    var polygon = generatePolygon(metaballs);
                     polygon.forEach(calculateData);
 
                     
@@ -146,42 +220,20 @@
                     lines.geometry.vertices = polygon;
                     lines.geometry.verticesNeedUpdate = true;
                     lines.position.z += 1;
+                    
                     scene.add(lines);
                     
 
 
                     scene.remove(triangles);
-
-                    triangles = new THREE.Mesh( new THREE.Geometry, new THREE.MeshBasicMaterial({color: 0xffffffff, wireframe: wireframe}) );
-                    triangles.geometry.vertices = polygon.slice(0);
-                    var points = [];
                     
-                    for (var i = 0; i < polygon.length; i++) {
-                        points.push([polygon[i].x, polygon[i].y]);
-                    }
-                    for (var i = 0; i < metaballs.length; i++) {
-                        metaball_loc = metaballs[i].clone();
-                        metaball_loc.z = 0;
-                        triangles.geometry.vertices.push(metaball_loc);
-                        points.push([metaball_loc.x, metaball_loc.y])
-                    }
-                    
-                    var edges = [];
-                    for (var i = 0; i < polygon.length; i++) {
-                        var j = (i + 1) % polygon.length;
-                        edges.push([i, j]);
-                    }
-                    var faces = cdt2d(points, edges, {exterior: false});
-                    
-                    for (var i = 0; i < faces.length; i++) {
-                        triangles.geometry.faces.push( new THREE.Face3(faces[i][0],faces[i][1],faces[i][2]) );
-                    }
-                    triangles.geometry.computeVertexNormals();
+                    triangles = generateMesh(polygon, metaballs);
                     
                     scene.add(triangles);
-
+                    
                     dataContainer.children[1].innerHTML = polygon.length.toString();
                     dataContainer.children[4].innerHTML = triangles.geometry.faces.length.toString();
+                    
                 }
                 
 				renderer.render(scene, camera);
@@ -189,13 +241,41 @@
                 stats.end();
 			}
             
+            function generateMetaballs(metaballs, bone, parent) {
+                if (parent !== undefined) {
+                    var boneLocation = bone.getWorldPosition();
+                    boneLocation.z = bone.thickness;
+                    var parentLocation = parent.getWorldPosition();
+                    parentLocation.z = parent.thickness;
+                    
+                    var subballs = 10;
+                    for (var i = 1; i <= subballs; i++) {
+                        var alpha = i/subballs;
+                        metaballs.push(boneLocation.clone().lerp(parentLocation, alpha));
+                    }
+                    
+                    //metaballs.push(boneLocation);
+                }
+                
+                bone.children.forEach(function(child) {
+                    generateMetaballs(metaballs, child, bone);
+                });
+            }
+            
             const UP = 0;
             const DOWN = 1;
             const LEFT = 2;
             const RIGHT = 3;
             
-            function generatePolygon() {
-                var start = metaballs[19].clone();
+            function generatePolygon(metaballs) {
+                var start = metaballs[0];
+                for (var i = 1; i < metaballs.length; i++) {
+                    if (metaballs[i].y > start.y) {
+                        start = metaballs[i];
+                    }
+                }
+                start = start.clone();
+                
                 start.z = 0;
                 start.divideScalar(interval);
                 start.ceil();
@@ -388,6 +468,57 @@
                 return vertices;
             }
             
+            function generateMesh(polygon, metaballs) {
+                var triangles = new THREE.Mesh( new THREE.Geometry, new THREE.MeshBasicMaterial({color: 0xffffffff, wireframe: wireframe}) );
+                triangles.geometry.vertices = polygon.slice(0);
+                var points = [];
+
+                for (var i = 0; i < polygon.length; i++) {
+                    points.push([polygon[i].x, polygon[i].y]);
+                }
+                
+                /*
+                for (var i = 0; i < metaballs.length; i++) {
+                    metaball_loc = metaballs[i].clone();
+                    metaball_loc.z = 0;
+                    triangles.geometry.vertices.push(metaball_loc);
+                    points.push([metaball_loc.x, metaball_loc.y])
+                }
+                */
+                var lowestX = polygon[0].x, lowestY = polygon[0].y, highestX = polygon[0].x, highestY = polygon[0].y;
+                for (var i = 0; i < polygon.length; i++) {
+                    lowestX = Math.min(lowestX, polygon[i].x)
+                    lowestY = Math.min(lowestY, polygon[i].y)
+                    highestX = Math.max(highestX, polygon[i].x)
+                    highestY = Math.max(highestY, polygon[i].y)
+                }
+                
+                var offset = highestY-lowestY;
+                for (var x = lowestX; x < highestX+offset; x+=20.1) {
+                    for (var y = lowestY; y < highestY; y+=20.1) {
+                        var skew = (y-lowestY)/2;
+                        triangles.geometry.vertices.push(new THREE.Vector3(x-skew, y, 0));
+                        points.push([x-skew, y])
+                    }
+                }
+                
+                var edges = [];
+                for (var i = 0; i < polygon.length; i++) {
+                    var j = (i + 1) % polygon.length;
+                    edges.push([i, j]);
+                }
+                
+
+                var faces = cdt2d(points, edges, {exterior: false});
+                
+                for (var i = 0; i < faces.length; i++) {
+                    triangles.geometry.faces.push( new THREE.Face3(faces[i][0],faces[i][1],faces[i][2]) );
+                }
+                
+                triangles.geometry.computeVertexNormals();
+                return triangles;
+            }
+            
             function nextVertex(dir, topLeft, topRight, bottomLeft, bottomRight) {
                 if (dir == UP) {
                     return interpolateLocation(topLeft, topRight);
@@ -415,7 +546,7 @@
                 for (var i = 0; i < metaballs.length; i++) {
                     metaball = metaballs[i];
                     addedVal = Math.pow(metaball.z, 2.0)/(Math.pow(metaball.x-x, 2.0)+Math.pow(metaball.y-y, 2.0));
-                    if (isNaN(addedVal))
+                    if (!isFinite(addedVal))
                         addedVal = 10000.0;
                     val += addedVal;
                 }
@@ -432,7 +563,7 @@
                     metaball = metaballs[i];
                     distance = (Math.pow(metaball.x-x, 2.0)+Math.pow(metaball.y-y, 2.0));
                     addedVal = Math.pow(metaball.z, 2.0)/distance;
-                    if (isNaN(addedVal))
+                    if (!isFinite(addedVal))
                         addedVal = 10000.0;
                     
                     if (addedVal > highestValue) {
@@ -450,7 +581,12 @@
                 var a = (1-val2)/(val1-val2);
                 if (!smoothInterpolation)
                     a = 0.5;
-                return loc1.clone().multiplyScalar(a).add( loc2.clone().multiplyScalar(1-a) );
+                //return loc1.clone().multiplyScalar(a).add( loc2.clone().multiplyScalar(1-a) );
+                if (isNaN(loc1.clone().lerp(loc2, 1-a).x)) {
+                    console.log(loc1, loc2);
+                }
+                
+                return (loc1.clone().lerp(loc2, 1-a));
             }
 			
 		</script>
@@ -463,11 +599,11 @@
 			}
 		</script>
 		<script id="fragmentShader" type="x-shader/x-fragment">
-            uniform vec3 metaballs[20];
+            uniform vec3 metaballs[METABALL_COUNT];
             varying vec3 vertexPosition;
             void main() {
                 float dist = 0.0;
-                for (int i = 0; i < 20; i++) {
+                for (int i = 0; i < METABALL_COUNT; i++) {
                     dist += pow(metaballs[i].z, 2.0) / dot(metaballs[i].xy-vertexPosition.xy, metaballs[i].xy-vertexPosition.xy);
                 }
                 if (dist < 1.0) {
