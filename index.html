@@ -68,44 +68,55 @@
                 ];
                 
                 var bone = new THREE.Bone();
-                    bone.thickness = 10;
+                    bone.thickness = 20;
                 var b2 = new THREE.Bone();
                     b2.thickness = 20;
                     bone.add(b2);
                     b2.position.y = 100;
                 
                 var b3 = new THREE.Bone();
-                    b3.thickness = 5;
+                    b3.thickness = 20;
                     b2.add(b3);
                     b3.position.x = 150;
                     b3.position.y = 100;
                 
                 
                 var b31 = new THREE.Bone();
-                    b31.thickness = 10;
+                    b31.thickness = 30;
                     b3.add(b31);
                     b31.position.y = -100;
                 
+                var b311 = new THREE.Bone();
+                    b311.thickness = 5;
+                    b31.add(b311);
+                    b311.position.y = -10;
+                    b311.position.x = -20;
+                
+                var b312 = new THREE.Bone();
+                    b312.thickness = 5;
+                    b31.add(b312);
+                    b312.position.y = -10;
+                    b312.position.x = 20;
+                
+                var b313 = new THREE.Bone();
+                    b313.thickness = 5;
+                    b31.add(b313);
+                    b313.position.y = -20;
+                
                 
                 var b4 = new THREE.Bone();
-                    b4.thickness = 5;
+                    b4.thickness = 20;
                     b2.add(b4);
                     b4.position.x = -150;
                     b4.position.y = 100;
                 
                 
                 var b41 = new THREE.Bone();
-                    b41.thickness = 10;
+                    b41.thickness = 30;
                     b4.add(b41);
                     b41.position.y = -100;
                 
                 generateMetaballs(metaballs, bone);
-                
-                for (var i = 0; i < 20; i++) {
-                    metaballs[i].y += 1;
-                }
-                
-                console.log(metaballs);
                 
                 // DEBUG DISPLAY
                 fragmentShader = fragmentShader.replace("METABALL_COUNT", metaballs.length).replace("METABALL_COUNT", metaballs.length);
@@ -212,7 +223,14 @@
                     */
                     var polygon = generatePolygon(metaballs);
                     polygon.forEach(calculateData);
-
+                    
+                    for (var i = 0; i < polygon.length; i++) {
+                        for (var j = i+1; j < polygon.length; j++) {
+                            if (polygon[i] == polygon[j]) {
+                                console.log("fuck");
+                            }
+                        }
+                    }
                     
                     scene.remove(lines);
 
@@ -243,12 +261,14 @@
             
             function generateMetaballs(metaballs, bone, parent) {
                 if (parent !== undefined) {
-                    var boneLocation = bone.getWorldPosition();
-                    boneLocation.z = bone.thickness;
-                    var parentLocation = parent.getWorldPosition();
-                    parentLocation.z = parent.thickness;
-                    
                     var subballs = 10;
+                    
+                    var boneLocation = bone.getWorldPosition();
+                    boneLocation.z = bone.thickness / Math.sqrt(subballs);
+                    var parentLocation = parent.getWorldPosition();
+                    
+                    parentLocation.z = bone.thickness / Math.sqrt(subballs);
+                    
                     for (var i = 1; i <= subballs; i++) {
                         var alpha = i/subballs;
                         metaballs.push(boneLocation.clone().lerp(parentLocation, alpha));
@@ -277,10 +297,11 @@
                 start = start.clone();
                 
                 start.z = 0;
+                /*
                 start.divideScalar(interval);
                 start.ceil();
                 start.multiplyScalar(interval);
-                
+                */
                 while (calculateValueAt(start) >= 1.0) {
                     start.add(new THREE.Vector3(0.0, interval));
                 }
@@ -494,8 +515,8 @@
                 }
                 
                 var offset = highestY-lowestY;
-                for (var x = lowestX; x < highestX+offset; x+=20.1) {
-                    for (var y = lowestY; y < highestY; y+=20.1) {
+                for (var x = lowestX+0.01; x < highestX+offset; x+=20.1711) {
+                    for (var y = lowestY+0.01; y < highestY; y+=20.1711) {
                         var skew = (y-lowestY)/2;
                         triangles.geometry.vertices.push(new THREE.Vector3(x-skew, y, 0));
                         points.push([x-skew, y])
