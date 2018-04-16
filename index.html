@@ -60,11 +60,41 @@
 				fragmentShader = document.getElementById('fragmentShader').textContent;
                 
                 
+                //--------------------------
+                    skeleton = generateSkeleton();
                 
-                skeleton = generateSkeleton();
-                metaballs = [];
-                generateMetaballs(metaballs, skeleton.bones[0]);
-                console.log(metaballs);
+                    metaballs = [];
+                    generateMetaballs(metaballs, skeleton.bones[0]);
+                
+                    polygon = generatePolygon(metaballs);
+
+                    lines = new THREE.Line( new THREE.Geometry, new THREE.LineBasicMaterial({color: 0xff00ff00}) );
+                    lines.geometry.vertices = polygon;
+                    lines.geometry.verticesNeedUpdate = true;
+                    lines.position.z += 1;
+                
+                    var texture; // = new THREE.TextureLoader().load( 'wood.jpeg' );
+                    
+                    var lowestX = polygon[0].x, lowestY = polygon[0].y, highestX = polygon[0].x, highestY = polygon[0].y;
+                    for (var i = 0; i < polygon.length; i++) {
+                        lowestX = Math.min(lowestX, polygon[i].x)
+                        lowestY = Math.min(lowestY, polygon[i].y)
+                        highestX = Math.max(highestX, polygon[i].x)
+                        highestY = Math.max(highestY, polygon[i].y)
+                    }
+                
+                    texture = generateTexture(metaballs, [lowestX, lowestY, highestX-lowestX, highestY-lowestY]);
+                    
+                    triangles = generateMesh(texture, polygon, metaballs, skeleton);
+                    skeletonhelper = new THREE.SkeletonHelper( triangles );
+                    
+                    scene.add(triangles);
+                    //scene.add(skeletonhelper);
+                
+                    dataContainer.children[1].innerHTML = polygon.length.toString();
+                    dataContainer.children[4].innerHTML = triangles.geometry.faces.length.toString();
+                    
+                //--------------------------
                 
                 // DEBUG DISPLAY
                 fragmentShader = fragmentShader.replace("METABALL_COUNT", metaballs.length).replace("METABALL_COUNT", metaballs.length);
@@ -80,30 +110,16 @@
                     side: THREE.DoubleSide
 				});
                 var plane = new THREE.Mesh( geometry, material );
+                plane.position.z = -1;
                 //scene.add( plane );
                 
+                var geometry = new THREE.PlaneBufferGeometry( 256, 256 );
+                var material = new THREE.MeshBasicMaterial({map: texture});
+                var plane = new THREE.Mesh( geometry, material );
+                plane.position.x -= 400-128;
+                plane.position.y += 250-128;
+                scene.add( plane );
                 
-                //--------------------------
-                    
-                    polygon = generatePolygon(metaballs);
-
-                    lines = new THREE.Line( new THREE.Geometry, new THREE.LineBasicMaterial({color: 0xff00ff00}) );
-                    lines.geometry.vertices = polygon;
-                    lines.geometry.verticesNeedUpdate = true;
-                    lines.position.z += 1;
-                    
-                    //scene.add(lines);
-                    
-                    triangles = generateMesh(polygon, metaballs, skeleton);
-                    skeletonhelper = new THREE.SkeletonHelper( triangles );
-                    
-                    scene.add(triangles);
-                    scene.add(skeletonhelper);
-                
-                    dataContainer.children[1].innerHTML = polygon.length.toString();
-                    dataContainer.children[4].innerHTML = triangles.geometry.faces.length.toString();
-                    
-                //--------------------------
 				draw();
 				
                 
@@ -243,7 +259,7 @@
                 var skeleton = new THREE.Skeleton([bone, b2, b3, b31, b311, b312, b313, b4, b41]);
                 return skeleton;
                 */
-                /*
+                
                 bone = new THREE.Bone();
                     bone.thickness = 20;
                 
@@ -285,8 +301,8 @@
                 
                 var skeleton = new THREE.Skeleton([bone, b2, b3, b4, b5, b6, b7, b8]);
                 return skeleton;
-                */
                 
+                /*
                 bone = new THREE.Bone();
                     bone.thickness = 20;
                 
@@ -312,7 +328,7 @@
                 
                 var skeleton = new THREE.Skeleton([bone, b2, b3, b4, b5]);
                 return skeleton;
-                
+                */
             }
             
             function generateMetaballs(metaballs, bone, parent) {
@@ -547,8 +563,9 @@
                 return vertices;
             }
             
-            function generateMesh(polygon, metaballs, skeleton) {
-                var triangles = new THREE.SkinnedMesh( new THREE.Geometry, new THREE.MeshBasicMaterial({color: 0xffffffff, wireframe: wireframe, skinning:true}) );
+            function generateMesh(texture, polygon, metaballs, skeleton) {
+                
+                var triangles = new THREE.SkinnedMesh( new THREE.Geometry, new THREE.MeshBasicMaterial({color: 0xffffffff, wireframe: wireframe, skinning:true, map: texture}) );
                 triangles.geometry.vertices = polygon.slice(0);
 
                 // vertices
@@ -569,6 +586,7 @@
                 }
                 */
                 
+                // area covered by mesh
                 var lowestX = polygon[0].x, lowestY = polygon[0].y, highestX = polygon[0].x, highestY = polygon[0].y;
                 for (var i = 0; i < polygon.length; i++) {
                     lowestX = Math.min(lowestX, polygon[i].x)
@@ -577,6 +595,9 @@
                     highestY = Math.max(highestY, polygon[i].y)
                 }
                 
+                console.log(lowestX)
+                
+                // adds points in uniform grid to fill out interior
                 var offset = highestY-lowestY;
                 for (var x = lowestX+0.01; x < highestX+offset; x+=20.1711) {
                     for (var y = lowestY+0.01; y < highestY; y+=20.1711) {
@@ -594,10 +615,21 @@
                 
                 // faces
                 var faces = cdt2d(points, edges, {exterior: false});
+                triangles.geometry.faceVertexUvs = [[]];
+                
+                width = highestX - lowestX;
+                height = highestY - lowestY;
+                function mapUV(vertexI) {
+                    var vertex = triangles.geometry.vertices[vertexI];
+                    return new THREE.Vector2( (vertex.x-lowestX)/width, (vertex.y-lowestY)/height );
+                }
                 
                 for (var i = 0; i < faces.length; i++) {
                     triangles.geometry.faces.push( new THREE.Face3(faces[i][0],faces[i][1],faces[i][2]) );
+                    triangles.geometry.faceVertexUvs[0].push([mapUV(faces[i][0]),mapUV(faces[i][1]),mapUV(faces[i][2])]);
                 }
+                
+                console.log(triangles.geometry.faceVertexUvs)
                 
                 triangles.geometry.computeVertexNormals();
                 
@@ -664,7 +696,6 @@
                     
                     boneValues[metaball.boneID] += addedVal;
                 }
-                //console.log(boneValues)
                 
                 var sortedBoneValues = boneValues.slice()
                 sortedBoneValues.sort(function(a, b){return b - a});
@@ -687,8 +718,6 @@
                 
                 return [boneIndices, boneWeights];
                 
-                //return [new THREE.Vector4( 0, 1, 0, 0), new THREE.Vector4( 0.5, 0.5, 0,  0)]
-                
             }
             
             function interpolateLocation(loc1, loc2) {
@@ -703,6 +732,32 @@
                 }
                 
                 return (loc1.clone().lerp(loc2, 1-a));
+            }
+            
+            function generateTexture(metaballs, bounds) {
+                var texRenderTarget = new THREE.WebGLRenderTarget(256, 256);
+                var texScene = new THREE.Scene();
+                var texCamera = new THREE.OrthographicCamera( 256 / - 2, 256 / 2, 256 / 2, 256 / - 2, 1, 1000 );
+				texCamera.position.set(viewerPosition.x, viewerPosition.y, viewerPosition.z);
+				texCamera.up = new THREE.Vector3(0, 1, 0);
+				texCamera.lookAt(lookAt);
+                
+                var geometry = new THREE.PlaneBufferGeometry( 256, 256 );
+                var material = new THREE.ShaderMaterial({
+					uniforms: {
+                        metaballs: new THREE.Uniform(metaballs),
+                        bounds: new THREE.Uniform(new THREE.Vector4(bounds[0], bounds[1], bounds[2], bounds[3]))
+                    },
+					vertexShader: vertexShader,
+					fragmentShader: document.getElementById('textureFragmentShader').textContent.replace("METABALL_COUNT", metaballs.length).replace("METABALL_COUNT", metaballs.length),
+                    side: THREE.DoubleSide
+				});
+                var plane = new THREE.Mesh( geometry, material );
+                texScene.add(plane);
+                
+                renderer.render(texScene, texCamera, texRenderTarget);
+                
+                return texRenderTarget.texture;
             }
 			
 		</script>
@@ -738,6 +793,42 @@
                 } else {
                     gl_FragColor = vec4(0.0, 0.0, dist, 1.0);
                 }*/
+			}
+		</script>
+		<script id="textureFragmentShader" type="x-shader/x-fragment">
+            uniform vec3 metaballs[METABALL_COUNT];
+            uniform vec4 bounds;
+            varying vec3 vertexPosition;
+            void main() {
+                vec2 alteredPosition; 
+                // position
+                alteredPosition.x = vertexPosition.x + 128.0;
+                alteredPosition.y = vertexPosition.y + 128.0;
+                
+                // scaling
+                alteredPosition.x *= bounds.z/256.0;
+                alteredPosition.y *= bounds.w/256.0;
+                
+                alteredPosition.x += bounds.x;
+                alteredPosition.y += bounds.y;
+                
+                float dist = 0.0;
+                for (int i = 0; i < METABALL_COUNT; i++) {
+                    dist += pow(metaballs[i].z, 2.0) / dot(metaballs[i].xy-alteredPosition.xy, metaballs[i].xy-alteredPosition.xy);
+                }
+                
+                if (dist < 1.0) {
+                    gl_FragColor = vec4(dist, 0.0, 0.0, 1.0);
+                } else {
+                    gl_FragColor = vec4(0.0, 0.0, dist-1.0, 1.0);
+                }
+                //gl_FragColor.r = alteredPosition.x / bounds.z;
+                //gl_FragColor.g = alteredPosition.y / bounds.w;
+                //gl_FragColor.b = 0.0;
+                
+                //gl_FragColor.r = vertexPosition.x;
+                //gl_FragColor.g = vertexPosition.y;
+                //gl_FragColor.b = 0.0;
 			}
 		</script>
 	</head>
