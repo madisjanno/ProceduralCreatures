@@ -19,6 +19,8 @@
             var triangles;
             var skeletonhelper;
             
+            var woodTexture = new THREE.TextureLoader().load( 'wood.jpeg' );
+            
             var interval = 5;
             var smoothInterpolation = true;
             var wireframe = false;
@@ -73,7 +75,7 @@
                     lines.geometry.verticesNeedUpdate = true;
                     lines.position.z += 1;
                 
-                    var texture; // = new THREE.TextureLoader().load( 'wood.jpeg' );
+                    var texture;
                     
                     var lowestX = polygon[0].x, lowestY = polygon[0].y, highestX = polygon[0].x, highestY = polygon[0].y;
                     for (var i = 0; i < polygon.length; i++) {
@@ -746,7 +748,8 @@
                 var material = new THREE.ShaderMaterial({
 					uniforms: {
                         metaballs: new THREE.Uniform(metaballs),
-                        bounds: new THREE.Uniform(new THREE.Vector4(bounds[0], bounds[1], bounds[2], bounds[3]))
+                        bounds: new THREE.Uniform(new THREE.Vector4(bounds[0], bounds[1], bounds[2], bounds[3])),
+                        woodTexture: new THREE.Uniform(woodTexture)
                     },
 					vertexShader: vertexShader,
 					fragmentShader: document.getElementById('textureFragmentShader').textContent.replace("METABALL_COUNT", metaballs.length).replace("METABALL_COUNT", metaballs.length),
@@ -799,7 +802,11 @@
             uniform vec3 metaballs[METABALL_COUNT];
             uniform vec4 bounds;
             varying vec3 vertexPosition;
+            
+            uniform sampler2D woodTexture;
+            
             void main() {
+            
                 vec2 alteredPosition; 
                 // position
                 alteredPosition.x = vertexPosition.x + 128.0;
@@ -822,6 +829,9 @@
                 } else {
                     gl_FragColor = vec4(0.0, 0.0, dist-1.0, 1.0);
                 }
+                
+                gl_FragColor = texture2D(woodTexture, vertexPosition.xy/vec2(256.0,256.0)+vec2(0.5,0.5)) * dist;
+                
                 //gl_FragColor.r = alteredPosition.x / bounds.z;
                 //gl_FragColor.g = alteredPosition.y / bounds.w;
                 //gl_FragColor.b = 0.0;
