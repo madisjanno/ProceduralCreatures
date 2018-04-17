@@ -18,8 +18,10 @@
             var lines;
             var triangles;
             var skeletonhelper;
+            var texture;
             
             var woodTexture = new THREE.TextureLoader().load( 'wood.jpeg' );
+            var iceTexture = new THREE.TextureLoader().load( 'ice.jpeg' );
             
             var interval = 5;
             var smoothInterpolation = true;
@@ -61,7 +63,6 @@
 				vertexShader = document.getElementById('vertexShader').textContent;
 				fragmentShader = document.getElementById('fragmentShader').textContent;
                 
-                
                 //--------------------------
                     skeleton = generateSkeleton();
                 
@@ -74,8 +75,6 @@
                     lines.geometry.vertices = polygon;
                     lines.geometry.verticesNeedUpdate = true;
                     lines.position.z += 1;
-                
-                    var texture;
                     
                     var lowestX = polygon[0].x, lowestY = polygon[0].y, highestX = polygon[0].x, highestY = polygon[0].y;
                     for (var i = 0; i < polygon.length; i++) {
@@ -312,21 +311,31 @@
                     b2.thickness = 20;
                     bone.add(b2);
                     b2.position.x = 40;
+                    b2.color = new THREE.Vector3(1.0, 0.0, 0.0);
                 
                 var b3 = new THREE.Bone();
                     b3.thickness = 20;
                     b2.add(b3);
                     b3.position.x = 40;
+                    b3.color = new THREE.Vector3(0.0, 1.0, 0.0);
+                    b3.texture_weights = new THREE.Vector4(0.0, 1.0, 0.0, 0.0);
                 
                 var b4 = new THREE.Bone();
                     b4.thickness = 20;
                     b3.add(b4);
                     b4.position.x = 40;
+                    b4.color = new THREE.Vector3(0.0, 0.0, 1.0);
                 
                 var b5 = new THREE.Bone();
                     b5.thickness = 20;
                     b4.add(b5);
                     b5.position.x = 40;
+                
+                var b6 = new THREE.Bone();
+                    b6.thickness = 20;
+                    b5.add(b6);
+                    b6.position.x = 40;
+                    b6.texture_weights = new THREE.Vector4(0.0, 1.0, 0.0, 0.0);
                 
                 var skeleton = new THREE.Skeleton([bone, b2, b3, b4, b5]);
                 return skeleton;
@@ -347,6 +356,14 @@
                         var alpha = i/subballs;
                         var ball = boneLocation.clone().lerp(parentLocation, alpha);
                         ball.boneID = skeleton.bones.indexOf(parent);
+                        
+                        if (bone.color) {
+                            ball.color = bone.color;
+                        }
+                        if (bone.texture_weights) {
+                            ball.texture_weights = bone.texture_weights;
+                        }
+                        
                         metaballs.push(ball);
                     }
                     
@@ -736,6 +753,7 @@
             }
             
             function generateTexture(metaballs, bounds) {
+                // camera setup
                 var texRenderTarget = new THREE.WebGLRenderTarget(256, 256);
                 var texScene = new THREE.Scene();
                 var texCamera = new THREE.OrthographicCamera( 256 / - 2, 256 / 2, 256 / 2, 256 / - 2, 1, 1000 );
@@ -743,15 +761,37 @@
 				texCamera.up = new THREE.Vector3(0, 1, 0);
 				texCamera.lookAt(lookAt);
                 
+                // shader uniforms and metaball data
+                var colors = [];
+                var texture_weights = [];
+                for (var i = 0; i < metaballs.length; i++) {
+                    if (metaballs[i].color) {
+                        colors.push(metaballs[i].color);
+                    } else {
+                        colors.push(new THREE.Vector3(1.0,1.0,1.0));
+                    }
+                    
+                    if (metaballs[i].texture_weights) {
+                        texture_weights.push(metaballs[i].texture_weights);
+                    } else {
+                        texture_weights.push(new THREE.Vector4(1.0,0.0,0.0,0.0));
+                    }
+                }
+                
+                
+                // shader setup
                 var geometry = new THREE.PlaneBufferGeometry( 256, 256 );
                 var material = new THREE.ShaderMaterial({
 					uniforms: {
                         metaballs: new THREE.Uniform(metaballs),
+                        metaball_colors: new THREE.Uniform(colors),
+                        metaball_texture_weights: new THREE.Uniform(texture_weights),
                         bounds: new THREE.Uniform(new THREE.Vector4(bounds[0], bounds[1], bounds[2], bounds[3])),
-                        woodTexture: new THREE.Uniform(woodTexture)
+                        tex_0: new THREE.Uniform(woodTexture),
+                        tex_1: new THREE.Uniform(iceTexture)
                     },
 					vertexShader: vertexShader,
-					fragmentShader: document.getElementById('textureFragmentShader').textContent.replace("METABALL_COUNT", metaballs.length).replace("METABALL_COUNT", metaballs.length),
+					fragmentShader: document.getElementById('textureFragmentShader').textContent.replace("METABALL_COUNT", metaballs.length),
                     side: THREE.DoubleSide
 				});
                 var plane = new THREE.Mesh( geometry, material );
@@ -766,8 +806,10 @@
 
 		<script id="vertexShader" type="x-shader/x-vertex">
 			varying vec3 vertexPosition;
+            varying vec2 frag_uv;
 			void main() {
 				vertexPosition = position;
+                frag_uv = uv;
 				gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
 			}
 		</script>
@@ -798,11 +840,21 @@
 			}
 		</script>
 		<script id="textureFragmentShader" type="x-shader/x-fragment">
-            uniform vec3 metaballs[METABALL_COUNT];
-            uniform vec4 bounds;
-            varying vec3 vertexPosition;
+            #define METABALL_C METABALL_COUNT
+        
+            uniform vec3 metaballs[METABALL_C];
+            uniform vec3 metaball_colors[METABALL_C];
+            uniform vec4 metaball_texture_weights[METABALL_C];
+
+            uniform sampler2D tex_0;
+            uniform sampler2D tex_1;
+            uniform sampler2D tex_2;
+            uniform sampler2D tex_3;
             
-            uniform sampler2D woodTexture;
+            uniform vec4 bounds;
+            
+            varying vec3 vertexPosition;
+            varying vec2 frag_uv;
             
             void main() {
             
@@ -819,18 +871,38 @@
                 alteredPosition.y += bounds.y;
                 
                 float dist = 0.0;
-                for (int i = 0; i < METABALL_COUNT; i++) {
-                    dist += pow(metaballs[i].z, 2.0) / dot(metaballs[i].xy-alteredPosition.xy, metaballs[i].xy-alteredPosition.xy);
+                vec3 color;
+                vec4 texture_weights;
+                
+                for (int i = 0; i < METABALL_C; i++) {
+                    float val = pow(metaballs[i].z, 2.0) / dot(metaballs[i].xy-alteredPosition.xy, metaballs[i].xy-alteredPosition.xy);
+                
+                    dist += val;
+                    color += val*metaball_colors[i];
+                    texture_weights += val*metaball_texture_weights[i];
                 }
                 
-                if (dist < 1.0) {
-                    gl_FragColor = vec4(dist, 0.0, 0.0, 1.0);
-                } else {
-                    gl_FragColor = vec4(0.0, 0.0, dist-1.0, 1.0);
+                color /= dist;
+                texture_weights /= dist;
+                
+                // texture UV's, scaled to avoid texture stretching
+                float ratio =  bounds.z/bounds.w;
+                vec2 uv = frag_uv; 
+                if (ratio < 1.0) {
+                    uv.x *= ratio;
+                }
+                if (ratio > 1.0) {
+                    uv.y /= ratio;
                 }
                 
-                gl_FragColor = texture2D(woodTexture, vertexPosition.xy/vec2(256.0,256.0)+vec2(0.5,0.5)) * dist;
+                vec4 texture_colors;
+                texture_colors += texture2D(tex_0, uv)*texture_weights.r;
+                texture_colors += texture2D(tex_1, uv)*texture_weights.g;
+                texture_colors += texture2D(tex_2, uv)*texture_weights.b;
+                texture_colors += texture2D(tex_3, uv)*texture_weights.a;
                 
+                gl_FragColor = texture_colors * vec4(color,1.0); //  * log(dist*2.0)/2.0
+                //gl_FragColor = vec4(uv, 0.0, 1.0);
                 //gl_FragColor.r = alteredPosition.x / bounds.z;
                 //gl_FragColor.g = alteredPosition.y / bounds.w;
                 //gl_FragColor.b = 0.0;
