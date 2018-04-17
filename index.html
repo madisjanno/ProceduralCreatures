@@ -261,7 +261,7 @@
                 var skeleton = new THREE.Skeleton([bone, b2, b3, b31, b311, b312, b313, b4, b41]);
                 return skeleton;
                 */
-                
+                /*
                 bone = new THREE.Bone();
                     bone.thickness = 20;
                 
@@ -303,8 +303,8 @@
                 
                 var skeleton = new THREE.Skeleton([bone, b2, b3, b4, b5, b6, b7, b8]);
                 return skeleton;
+                */
                 
-                /*
                 bone = new THREE.Bone();
                     bone.thickness = 20;
                 
@@ -330,7 +330,7 @@
                 
                 var skeleton = new THREE.Skeleton([bone, b2, b3, b4, b5]);
                 return skeleton;
-                */
+                
             }
             
             function generateMetaballs(metaballs, bone, parent) {
@@ -687,7 +687,7 @@
                 var y = v.y;
                 
                 boneValues = []
-                for (var i = 0; i < skeleton.bones.length; i++) [boneValues.push(0)]
+                for (var i = 0; i < skeleton.bones.length; i++) [boneValues.push({id:i,value:0})]
                 
                 for (var i = 0; i < metaballs.length; i++) {
                     metaball = metaballs[i];
@@ -696,24 +696,23 @@
                     if (!isFinite(addedVal))
                         addedVal = 10000.0;
                     
-                    boneValues[metaball.boneID] += addedVal;
+                    boneValues[metaball.boneID].value += addedVal;
                 }
                 
-                var sortedBoneValues = boneValues.slice()
-                sortedBoneValues.sort(function(a, b){return b - a});
+                boneValues.sort(function(a, b){return b.value - a.value});
                 
                 boneIndices = new THREE.Vector4( 
-                        boneValues.indexOf(sortedBoneValues[0]), 
-                        boneValues.indexOf(sortedBoneValues[1]), 
-                        boneValues.indexOf(sortedBoneValues[2]), 
-                        boneValues.indexOf(sortedBoneValues[3])
+                        boneValues[0].id,
+                        boneValues[1].id, 
+                        boneValues[2].id, 
+                        boneValues[3].id
                     );
                 
                 boneWeights = new THREE.Vector4( 
-                        sortedBoneValues[0],
-                        sortedBoneValues[1], 
-                        sortedBoneValues[2], 
-                        sortedBoneValues[3]
+                        boneValues[0].value,
+                        boneValues[1].value, 
+                        boneValues[2].value, 
+                        boneValues[3].value
                     );
                 
                 boneWeights.divideScalar(boneWeights.lengthManhattan());
