@@ -178,7 +178,7 @@
                 if (!paused) {
                     
                     for (var i = 0; i < skeleton.bones.length; i++) {
-                        skeleton.bones[i].rotation.z = Math.sin(clock.getElapsedTime()*(i+1)/10.0);
+                        skeleton.bones[i].rotation.z = Math.sin(clock.getElapsedTime()*(i/0.23+1)/10.0);
                     }
                     
                 }
@@ -228,7 +228,7 @@
                 return skeleton;
                 */
                 
-                var spineSegments = Math.round(4+Math.random()*3);
+                var spineSegments = Math.round(2+Math.random()*7);
                 
                 var skeleton = [];
                 var spine = [];
@@ -240,6 +240,9 @@
                     
                     spineSegment.thickness = 10+Math.random()*10;
                     spineSegment.position.y = 50+Math.random()*40;
+                    var a = Math.random();
+                    spineSegment.texture_weights = new THREE.Vector4(a, 1.0-a, 0.0, 0.0);
+                    spineSegment.color = new THREE.Vector3(Math.random(), Math.random(), Math.random());
                     
                     spine[i-1].add(spineSegment);
                     spine.push(spineSegment);
@@ -258,6 +261,7 @@
                             limbSegmentLengths.push(20+Math.random()*10);
                             limbSegmentThicknesses.push(5+Math.random()*5);
                         }
+                        limbSegmentThicknesses[0] = 5;
                         
                         for (var dir = -1; dir < 2; dir+=2) {
                             var limb = [];
@@ -276,6 +280,7 @@
 
                                 limbSegment.thickness = limbSegmentThicknesses[j];
                                 limbSegment.position.x = dir*limbSegmentLengths[j];
+                                limbSegment.color = new THREE.Vector3(Math.random(), Math.random(), Math.random());
 
                                 limb[j-1].add(limbSegment);
                                 limb.push(limbSegment);
@@ -295,13 +300,17 @@
             
             function generateMetaballs(metaballs, bone, parent) {
                 if (parent !== undefined) {
-                    var subballs = 5;
                     
                     var boneLocation = bone.getWorldPosition();
-                    boneLocation.z = bone.thickness / Math.sqrt(subballs);
                     var parentLocation = parent.getWorldPosition();
                     
+                    var subballs = 5;
+                    boneLocation.z = bone.thickness / Math.sqrt(subballs);
                     parentLocation.z = bone.thickness / Math.sqrt(subballs);
+                    
+                    //subballs = Math.ceil(boneLocation.distanceTo(parentLocation)/(bone.thickness*2));
+                    //boneLocation.z = bone.thickness;
+                    //parentLocation.z = bone.thickness;
                     
                     for (var i = 1; i <= subballs; i++) {
                         var alpha = i/subballs;
@@ -309,7 +318,11 @@
                         ball.boneID = skeleton.bones.indexOf(parent);
                         
                         if (bone.color) {
-                            ball.color = bone.color;
+                            if (parent.color) {
+                                ball.color = bone.color.clone().lerp(parent.color, alpha);
+                            } else {
+                                ball.color = bone.color;
+                            }
                         }
                         if (bone.texture_weights) {
                             ball.texture_weights = bone.texture_weights;
