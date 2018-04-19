@@ -238,8 +238,8 @@
                 for (var i = 1; i < spineSegments; i++) {
                     var spineSegment = new THREE.Bone();
                     
-                    spineSegment.thickness = 10+Math.random()*10;
-                    spineSegment.position.y = 50+Math.random()*40;
+                    spineSegment.thickness = 10+Math.random()*20;
+                    spineSegment.position.y = 50+Math.random()*50;
                     var a = Math.random();
                     spineSegment.texture_weights = new THREE.Vector4(a, 1.0-a, 0.0, 0.0);
                     spineSegment.color = new THREE.Vector3(Math.random(), Math.random(), Math.random());
@@ -252,14 +252,14 @@
                 
                 for (var i = 0; i < spineSegments; i++) {
                     if (Math.random() > 0.5) {
-                        var limbSegments = Math.round(2+Math.random()*3);
+                        var limbSegments = Math.round(2+Math.random()*7);
                         
                         var limbSegmentLengths = [];
                         var limbSegmentThicknesses = [];
                         
                         for (var j = 0; j < limbSegments; j++) {
                             limbSegmentLengths.push(20+Math.random()*10);
-                            limbSegmentThicknesses.push(5+Math.random()*5);
+                            limbSegmentThicknesses.push(5+Math.random()*15);
                         }
                         limbSegmentThicknesses[0] = 5;
                         
@@ -363,6 +363,7 @@
                     if (counter > 100)
                         return;
                 }
+                console.log("crawling complete", start, calculateValueAt(start, metaballs));
                 
                 var topLeft, topRight, bottomLeft, bottomRight;
                 /*
@@ -390,10 +391,8 @@
                     if (prev == LEFT) {x--;}
                     if (prev == UP) {y++;}
                     if (prev == DOWN) {y--}
-                    console.log(x, y);
                     
-                    if (prev == RIGHT && x == 0 && y == 0) { // prev == RIGHT &&
-                        console.log(prev);
+                    if (prev == RIGHT && x == 0 && y == 0) {
                         if (passedStart) {
                             break;
                         }
@@ -663,15 +662,28 @@
                 return vec;
             }
             
+            function calculateMetaballValue(x, y, metaball) {
+                var distance = Math.pow(metaball.x-x, 2.0)+Math.pow(metaball.y-y, 2.0);
+                var blobbyness = -0.25;
+                return 1.0*Math.exp(blobbyness*distance/(metaball.z*metaball.z)-blobbyness);
+                
+                //float distance = dot(metaballs[i].xy-vertexPosition.xy, metaballs[i].xy-vertexPosition.xy);
+                //float blobbyness = -0.25;
+                //dist += 1.0*exp(blobbyness*distance/(metaballs[i].z*metaballs[i].z)-blobbyness);
+            }
+            
             function calculateValueAt(c, metaballs) {
                 var x = c.x;
                 var y = c.y;
                 var val = 0.0;
                 for (var i = 0; i < metaballs.length; i++) {
-                    metaball = metaballs[i];
-                    addedVal = Math.pow(metaball.z, 2.0)/(Math.pow(metaball.x-x, 2.0)+Math.pow(metaball.y-y, 2.0));
-                    if (!isFinite(addedVal))
+                    var metaball = metaballs[i];
+                    //addedVal = Math.pow(metaball.z, 2.0)/(Math.pow(metaball.x-x, 2.0)+Math.pow(metaball.y-y, 2.0));
+                    var addedVal = calculateMetaballValue(x, y, metaball);
+                    if (!isFinite(addedVal)) {
+                        //console.log(addedVal);
                         addedVal = 10000.0;
+                    }
                     val += addedVal;
                 }
                 return val;
@@ -685,9 +697,9 @@
                 for (var i = 0; i < skeleton.bones.length; i++) [boneValues.push({id:i,value:0})]
                 
                 for (var i = 0; i < metaballs.length; i++) {
-                    metaball = metaballs[i];
-                    distance = (Math.pow(metaball.x-x, 2.0)+Math.pow(metaball.y-y, 2.0));
-                    addedVal = Math.pow(Math.pow(metaball.z, 2.0)/distance, 2.0);
+                    var metaball = metaballs[i];
+                    //addedVal = Math.pow(Math.pow(metaball.z, 2.0)/distance, 2.0);
+                    var addedVal = calculateMetaballValue(x, y, metaball);
                     if (!isFinite(addedVal))
                         addedVal = 10000.0;
                     
@@ -798,7 +810,11 @@
                 
                 float dist = 0.0;
                 for (int i = 0; i < METABALL_COUNT; i++) {
-                    dist += pow(metaballs[i].z, 2.0) / dot(metaballs[i].xy-vertexPosition.xy, metaballs[i].xy-vertexPosition.xy);
+                    //dist += pow(metaballs[i].z, 2.0) / dot(metaballs[i].xy-vertexPosition.xy, metaballs[i].xy-vertexPosition.xy);
+                    
+                    float distance = dot(metaballs[i].xy-vertexPosition.xy, metaballs[i].xy-vertexPosition.xy);
+                    float blobbyness = -0.25;
+                    dist += 1.0*exp(blobbyness*distance/(metaballs[i].z*metaballs[i].z)-blobbyness);
                 }
                 if (dist < 1.0) {
                     gl_FragColor = vec4(dist, 0.0, 0.0, 1.0);
@@ -853,7 +869,9 @@
                 vec4 texture_weights;
                 
                 for (int i = 0; i < METABALL_C; i++) {
-                    float val = pow(metaballs[i].z, 2.0) / dot(metaballs[i].xy-alteredPosition.xy, metaballs[i].xy-alteredPosition.xy);
+                    float distance = dot(metaballs[i].xy-alteredPosition.xy, metaballs[i].xy-alteredPosition.xy);
+                    float blobbyness = -0.25;
+                    float val = 1.0*exp(blobbyness*distance/(metaballs[i].z*metaballs[i].z)-blobbyness);
                 
                     dist += val;
                     color += val*metaball_colors[i];
@@ -879,7 +897,7 @@
                 texture_colors += texture2D(tex_2, uv)*texture_weights.b;
                 texture_colors += texture2D(tex_3, uv)*texture_weights.a;
                 
-                gl_FragColor = texture_colors * vec4(color,1.0)  * log(dist*2.0)/1.0;
+                gl_FragColor = texture_colors * vec4(color,1.0)  * (dist-0.5);//*(dist-1.0);
                 //gl_FragColor = vec4(uv, 0.0, 1.0);
                 //gl_FragColor.r = alteredPosition.x / bounds.z;
                 //gl_FragColor.g = alteredPosition.y / bounds.w;
