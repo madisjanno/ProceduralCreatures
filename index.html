@@ -636,6 +636,8 @@
                     //console.log(data);
                     triangles.geometry.skinIndices.push( data[0] );
                     triangles.geometry.skinWeights.push( data[1] );
+                    
+                    triangles.geometry.vertices[i].z = (triangles.geometry.vertices[i].y-highestY)/height;
                 }
                 triangles.bind( skeleton );
                 
