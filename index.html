@@ -709,6 +709,9 @@
                 }
                 
                 boneValues.sort(function(a, b){return b.value - a.value});
+                while (boneValues.length < 4) {
+                    boneValues.push({id:0,value:0});
+                }
                 
                 boneIndices = new THREE.Vector4( 
                         boneValues[0].id,
