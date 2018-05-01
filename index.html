@@ -64,12 +64,15 @@
 				fragmentShader = document.getElementById('fragmentShader').textContent;
                 
                 //--------------------------
+                    var timer = new THREE.Clock();
                     console.log("generating skeleton");
                     skeleton = generateSkeleton();
+                    console.log(timer.getElapsedTime());
                     
                     console.log("generating metaballs");
                     metaballs = [];
                     generateMetaballs(metaballs, skeleton.bones[0]);
+                    console.log(timer.getElapsedTime());
                     
                     
                     console.log("generating polygon");
@@ -82,6 +85,7 @@
                     lines.position.z += 1;
                     
                     //scene.add(lines);
+                    console.log(timer.getElapsedTime());
                     
                     console.log("generating texture");
                     var lowestX = polygon[0].x, lowestY = polygon[0].y, highestX = polygon[0].x, highestY = polygon[0].y;
@@ -91,8 +95,10 @@
                         highestX = Math.max(highestX, polygon[i].x)
                         highestY = Math.max(highestY, polygon[i].y)
                     }
+                    console.log("upperlimit:", highestY);
                     
                     texture = generateTexture(metaballs, [lowestX, lowestY, highestX-lowestX, highestY-lowestY]);
+                    console.log(timer.getElapsedTime());
                     
                     console.log("generating mesh");
                     triangles = generateMesh(texture, polygon, metaballs, skeleton);
@@ -102,6 +108,7 @@
                     
                     scene.add(triangles);
                     //scene.add(skeletonhelper);
+                    console.log("m", timer.getElapsedTime());
                 
                     dataContainer.children[1].innerHTML = polygon.length.toString();
                     dataContainer.children[4].innerHTML = triangles.geometry.faces.length.toString();
@@ -124,14 +131,14 @@
 				});
                 var plane = new THREE.Mesh( geometry, material );
                 plane.position.z = -1;
-                //scene.add( plane );
+                scene.add( plane );
                 
                 var geometry = new THREE.PlaneBufferGeometry( 256, 256 );
                 var material = new THREE.MeshBasicMaterial({map: texture});
                 var plane = new THREE.Mesh( geometry, material );
                 plane.position.x -= 400-128;
                 plane.position.y += 250-128;
-                //scene.add( plane );
+                scene.add( plane );
                 
 				draw();
 				
@@ -228,7 +235,30 @@
                 return skeleton;
                 */
                 
-                var spineSegments = Math.round(2+Math.random()*7);
+                // -- DEBUG
+                /*
+                bone = new THREE.Bone();
+                    bone.thickness = 20;
+                
+                var b2 = new THREE.Bone();
+                    b2.thickness = 20;
+                    bone.add(b2);
+                    b2.position.x = 700;
+                    b2.color = new THREE.Vector3(1.0, 0.0, 0.0);
+                
+                var b3 = new THREE.Bone();
+                    b3.thickness = 20;
+                    bone.add(b3);
+                    b3.position.y = 700;
+                    b3.color = new THREE.Vector3(1.0, 0.0, 0.0);
+                    b3.multiplier = 1.6;
+                
+                var skeleton = new THREE.Skeleton([bone, b2, b3]);
+                return skeleton;
+                */
+                // -- DEBUG
+                
+                var spineSegments = Math.round(2+Math.random()*3);
                 
                 var skeleton = [];
                 var spine = [];
@@ -238,7 +268,7 @@
                 for (var i = 1; i < spineSegments; i++) {
                     var spineSegment = new THREE.Bone();
                     
-                    spineSegment.thickness = 10+Math.random()*20;
+                    spineSegment.thickness = 10+Math.random()*30;
                     spineSegment.position.y = 50+Math.random()*50;
                     var a = Math.random();
                     spineSegment.texture_weights = new THREE.Vector4(a, 1.0-a, 0.0, 0.0);
@@ -249,19 +279,21 @@
                 }
                 skeleton.push(...spine);
                 
+                console.log("skellngton:", skeleton[skeleton.length-1].getWorldPosition(), skeleton[skeleton.length-2].thickness);
+                
                 
                 for (var i = 0; i < spineSegments; i++) {
                     if (Math.random() > 0.5) {
-                        var limbSegments = Math.round(2+Math.random()*7);
+                        var limbSegments = Math.round(2+Math.random()*3);
                         
                         var limbSegmentLengths = [];
                         var limbSegmentThicknesses = [];
                         
                         for (var j = 0; j < limbSegments; j++) {
-                            limbSegmentLengths.push(20+Math.random()*10);
-                            limbSegmentThicknesses.push(5+Math.random()*15);
+                            limbSegmentLengths.push(50+Math.random()*20);
+                            limbSegmentThicknesses.push(5+Math.random()*10);
                         }
-                        limbSegmentThicknesses[0] = 5;
+                        limbSegmentThicknesses[0] = 10;
                         
                         for (var dir = -1; dir < 2; dir+=2) {
                             var limb = [];
@@ -304,18 +336,33 @@
                     var boneLocation = bone.getWorldPosition();
                     var parentLocation = parent.getWorldPosition();
                     
-                    var subballs = 5;
+                    var subballs = 1;
                     boneLocation.z = bone.thickness / Math.sqrt(subballs);
                     parentLocation.z = bone.thickness / Math.sqrt(subballs);
                     
-                    //subballs = Math.ceil(boneLocation.distanceTo(parentLocation)/(bone.thickness*2));
-                    //boneLocation.z = bone.thickness;
-                    //parentLocation.z = bone.thickness;
+                    //subballs = Math.ceil(boneLocation.distanceTo(parentLocation)/20);
+                    var mult = 1.6;
+                    if (bone.multiplier) {
+                        mult = bone.multiplier;
+                    }
+                    var thicknessMult = (mult)*Math.sqrt(1/(4*Math.log(mult)+1)); //Math.sqrt(mult)*
+                    thicknessMult = mult/Math.sqrt(2*Math.log(mult*mult)+1);
+                    //thicknessMult = 1/mult;
+                    //thicknessMult = 1;
+                    // blobby 0.25 = 3.69
+                    // blobby 0.5 = 3.485
+                    subballs = Math.ceil(boneLocation.distanceTo(parentLocation)/(bone.thickness*2.97)*mult);
                     
-                    for (var i = 1; i <= subballs; i++) {
+                    
+                    boneLocation.z = bone.thickness*thicknessMult;
+                    parentLocation.z = bone.thickness*thicknessMult;
+                    
+                    for (var i = 0; i <= subballs; i++) {
                         var alpha = i/subballs;
                         var ball = boneLocation.clone().lerp(parentLocation, alpha);
                         ball.boneID = skeleton.bones.indexOf(parent);
+                        if (alpha < 0.1)
+                            ball.boneID = skeleton.bones.indexOf(bone);
                         
                         if (bone.color) {
                             if (parent.color) {
@@ -357,13 +404,13 @@
                 
                 var counter = 0;
                 while (calculateValueAt(start, metaballs) >= 1.0) {
-                    console.log("crawling in my skiiin", start, calculateValueAt(start, metaballs));
+                    //console.log("crawling in my skiiin", start, calculateValueAt(start, metaballs));
                     start.add(new THREE.Vector3(0.0, interval));
                     counter++;
                     if (counter > 100)
                         return;
                 }
-                console.log("crawling complete", start, calculateValueAt(start, metaballs));
+                //console.log("crawling complete", start, calculateValueAt(start, metaballs));
                 
                 var topLeft, topRight, bottomLeft, bottomRight;
                 /*
@@ -666,12 +713,10 @@
             
             function calculateMetaballValue(x, y, metaball) {
                 var distance = Math.pow(metaball.x-x, 2.0)+Math.pow(metaball.y-y, 2.0);
-                var blobbyness = -0.25;
+                //var blobbyness = -0.25;
+                var blobbyness = -0.5;
                 return 1.0*Math.exp(blobbyness*distance/(metaball.z*metaball.z)-blobbyness);
                 
-                //float distance = dot(metaballs[i].xy-vertexPosition.xy, metaballs[i].xy-vertexPosition.xy);
-                //float blobbyness = -0.25;
-                //dist += 1.0*exp(blobbyness*distance/(metaballs[i].z*metaballs[i].z)-blobbyness);
             }
             
             function calculateValueAt(c, metaballs) {
@@ -814,18 +859,28 @@
             void main() {
                 
                 float dist = 0.0;
+                float insideBall = 0.0;
                 for (int i = 0; i < METABALL_COUNT; i++) {
                     //dist += pow(metaballs[i].z, 2.0) / dot(metaballs[i].xy-vertexPosition.xy, metaballs[i].xy-vertexPosition.xy);
                     
                     float distance = dot(metaballs[i].xy-vertexPosition.xy, metaballs[i].xy-vertexPosition.xy);
-                    float blobbyness = -0.25;
-                    dist += 1.0*exp(blobbyness*distance/(metaballs[i].z*metaballs[i].z)-blobbyness);
+                    float blobbyness = -0.5;
+                    float extraVal = 1.0*exp(blobbyness*distance/(metaballs[i].z*metaballs[i].z)-blobbyness);
+                    dist += extraVal;
+                    insideBall = extraVal > 1.0 ? 1.0 : insideBall;
+                    
+                    
                 }
                 if (dist < 1.0) {
                     gl_FragColor = vec4(dist, 0.0, 0.0, 1.0);
                 } else {
                     gl_FragColor = vec4(0.0, 0.0, dist-1.0, 1.0);
                 }
+                
+                if (insideBall > 0.5) {
+                    gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+                }
+                
                 /*
                 float dist = 0.0;
                 for (int i = 0; i < METABALL_COUNT; i++) {
@@ -875,7 +930,7 @@
                 
                 for (int i = 0; i < METABALL_C; i++) {
                     float distance = dot(metaballs[i].xy-alteredPosition.xy, metaballs[i].xy-alteredPosition.xy);
-                    float blobbyness = -0.25;
+                    float blobbyness = -0.5;
                     float val = 1.0*exp(blobbyness*distance/(metaballs[i].z*metaballs[i].z)-blobbyness);
                 
                     dist += val;
@@ -902,7 +957,8 @@
                 texture_colors += texture2D(tex_2, uv)*texture_weights.b;
                 texture_colors += texture2D(tex_3, uv)*texture_weights.a;
                 
-                gl_FragColor = texture_colors * vec4(color,1.0)  * (dist-0.5);//*(dist-1.0);
+                gl_FragColor = texture_colors * vec4(color,1.0)  * (dist-0.25) / 2.0;//*(dist-1.0);
+                //gl_FragColor = vec4((dist-0.5) / 2.0, (dist-0.5) / 2.0, (dist-0.5) / 2.0, 1.0);
                 //gl_FragColor = vec4(uv, 0.0, 1.0);
                 //gl_FragColor.r = alteredPosition.x / bounds.z;
                 //gl_FragColor.g = alteredPosition.y / bounds.w;
@@ -911,6 +967,8 @@
                 //gl_FragColor.r = vertexPosition.x;
                 //gl_FragColor.g = vertexPosition.y;
                 //gl_FragColor.b = 0.0;
+                
+                //gl_FragColor = vec4(1.0,1.0,1.0,1.0);
 			}
 		</script>
 	</head>
