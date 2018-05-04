@@ -23,6 +23,8 @@
             var woodTexture = new THREE.TextureLoader().load( 'wood.jpeg' );
             var iceTexture = new THREE.TextureLoader().load( 'ice.jpeg' );
             
+            var eyeTexture = new THREE.TextureLoader().load( 'eye.png' );
+            
             var interval = 5;
             var smoothInterpolation = true;
             var wireframe = false;
@@ -258,6 +260,8 @@
                 */
                 // -- DEBUG
                 
+                
+                // SPINE
                 var spineSegments = Math.round(2+Math.random()*3);
                 
                 var skeleton = [];
@@ -279,9 +283,41 @@
                 }
                 skeleton.push(...spine);
                 
-                console.log("skellngton:", skeleton[skeleton.length-1].getWorldPosition(), skeleton[skeleton.length-2].thickness);
+                
+                // EYES
+                var eyes = Math.floor(1+Math.random()*7);
+                var eyeSize = skeleton[skeleton.length-1].thickness*(0.5+Math.random()*0.5);
+                console.log("eye", eyeSize)
+                    
+                var eyeMesh = new THREE.Mesh( new THREE.PlaneGeometry( eyeSize, eyeSize ), new THREE.MeshBasicMaterial({map: eyeTexture, side: THREE.DoubleSide, transparent:true}) );
+                
+                for (var i = 0; i < eyes; i++) {
+                    var angle = Math.PI/eyes*i*2.0;
+                    if (eyes % 2 == 1) {
+                        angle += Math.PI*0.5;
+                    }
+                    var x = Math.cos(angle)*skeleton[skeleton.length-1].thickness;
+                    var y = Math.sin(angle)*skeleton[skeleton.length-1].thickness;
+                    //for (var dir = -1; dir < 2; dir+=2) {
+                        var eye = eyeMesh.clone();
+                        eye.position.x = x;
+                        eye.position.y = y;
+                        skeleton[skeleton.length-1].add(eye);
+                    //}
+                }
+                //eyeMesh.position.y = 0//skeleton[skeleton.length-1].position.y;
+                //eyeMesh.position.z = 0;
+                
+                //skeleton[skeleton.length-1].add(eyeMesh);
+                //eyeMesh = eyeMesh.clone();
+                //eyeMesh.position.x = -20;
+                //skeleton[skeleton.length-1].add(eyeMesh);
+                //eyeMesh = eyeMesh.clone();
+                //eyeMesh.position.x = 20;
+                //skeleton[skeleton.length-1].add(eyeMesh);
                 
                 
+                // LIMBS
                 for (var i = 0; i < spineSegments; i++) {
                     if (Math.random() > 0.5) {
                         var limbSegments = Math.round(2+Math.random()*3);
