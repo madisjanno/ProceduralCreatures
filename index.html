@@ -720,7 +720,7 @@
                     triangles.geometry.skinIndices.push( data[0] );
                     triangles.geometry.skinWeights.push( data[1] );
                     
-                    triangles.geometry.vertices[i].z = (triangles.geometry.vertices[i].y-highestY)/height;
+                    triangles.geometry.vertices[i].z = (triangles.geometry.vertices[i].y-lowestY)/height;
                 }
                 triangles.bind( skeleton );
                 
@@ -949,16 +949,8 @@
             void main() {
             
                 vec2 alteredPosition; 
-                // position
-                alteredPosition.x = vertexPosition.x + 128.0;
-                alteredPosition.y = vertexPosition.y + 128.0;
-                
-                // scaling
-                alteredPosition.x *= bounds.z/256.0;
-                alteredPosition.y *= bounds.w/256.0;
-                
-                alteredPosition.x += bounds.x;
-                alteredPosition.y += bounds.y;
+                alteredPosition.x = bounds.x + frag_uv.x * bounds.z;
+                alteredPosition.y = bounds.y + frag_uv.y * bounds.w;
                 
                 float dist = 0.0;
                 vec3 color;
