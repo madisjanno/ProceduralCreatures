@@ -5,6 +5,7 @@
 		<script type="text/javascript" src="three.r87.js"></script>
         <script type="text/javascript" src="bundle.js"></script>
         <script type="text/javascript" src="http://rawgit.com/mrdoob/stats.js/master/build/stats.min.js"></script>
+        <script type="text/javascript" src="dat.gui.min.js"></script>
 		<script type="text/javascript">
 		
 			var renderer, scene, camera;
@@ -14,11 +15,19 @@
             var skeleton;
             var metaballs;
             var polygon;
-            
-            var lines;
-            var triangles;
-            var skeletonhelper;
             var texture;
+            
+            var displayCreature = true;
+            var creature;
+            
+            var displaySkeleton = true;
+            var skeletonhelper;
+            var displayTexture = true;
+            var textureDisplay;
+            var displayMetaballs = true;
+            var metaballDisplay;
+            var displayOutline = true;
+            var lines;
             
             var eyesArray = [];
             
@@ -34,6 +43,7 @@
             
             var clock = new THREE.Clock();
             
+            // INTERFACE
 			var stats = new Stats();
 			stats.showPanel( 1 ); // 0: fps, 1: ms, 2: mb, 3+: custom
 			
@@ -67,118 +77,48 @@
 				vertexShader = document.getElementById('vertexShader').textContent;
 				fragmentShader = document.getElementById('fragmentShader').textContent;
                 
+                createGUI();
+                
                 //--------------------------
-                    var timer = new THREE.Clock();
-                    console.log("generating skeleton");
-                    skeleton = generateSkeleton();
-                    console.log(timer.getElapsedTime());
-                    
-                    console.log("generating metaballs");
-                    metaballs = [];
-                    generateMetaballs(metaballs, skeleton.bones[0]);
-                    console.log(timer.getElapsedTime());
-                    
-                    
-                    console.log("generating polygon");
-                    polygon = generatePolygon(metaballs);
-                    
-                    
-                    lines = new THREE.Line( new THREE.Geometry, new THREE.LineBasicMaterial({color: 0xff00ff00}) );
-                    lines.geometry.vertices = polygon;
-                    lines.geometry.verticesNeedUpdate = true;
-                    lines.position.z += 1;
-                    
-                    //scene.add(lines);
-                    console.log(timer.getElapsedTime());
-                    
-                    console.log("generating texture");
-                    var lowestX = polygon[0].x, lowestY = polygon[0].y, highestX = polygon[0].x, highestY = polygon[0].y;
-                    for (var i = 0; i < polygon.length; i++) {
-                        lowestX = Math.min(lowestX, polygon[i].x)
-                        lowestY = Math.min(lowestY, polygon[i].y)
-                        highestX = Math.max(highestX, polygon[i].x)
-                        highestY = Math.max(highestY, polygon[i].y)
-                    }
-                    console.log("upperlimit:", highestY);
-                    
-                    texture = generateTexture(metaballs, [lowestX, lowestY, highestX-lowestX, highestY-lowestY]);
-                    console.log(timer.getElapsedTime());
-                    
-                    console.log("generating mesh");
-                    triangles = generateMesh(texture, polygon, metaballs, skeleton);
-                    skeletonhelper = new THREE.SkeletonHelper( triangles );
-                
-                    triangles.position.y = -200;
-                    
-                    scene.add(triangles);
-                    //scene.add(skeletonhelper);
-                    console.log("m", timer.getElapsedTime());
-                
-                    dataContainer.children[1].innerHTML = polygon.length.toString();
-                    dataContainer.children[4].innerHTML = triangles.geometry.faces.length.toString();
-                    
-                    
+                    generateCreature();    
                 //--------------------------
-                
-                // DEBUG DISPLAY
-                fragmentShader = fragmentShader.replace("METABALL_COUNT", metaballs.length).replace("METABALL_COUNT", metaballs.length);
-                console.log(fragmentShader);
-                
-                var geometry = new THREE.PlaneBufferGeometry( 700, 700 );
-                var material = new THREE.ShaderMaterial({
-					uniforms: {
-                        metaballs: new THREE.Uniform(metaballs)
-                    },
-					vertexShader: vertexShader,
-					fragmentShader: fragmentShader,
-                    side: THREE.DoubleSide
-				});
-                var plane = new THREE.Mesh( geometry, material );
-                plane.position.z = -1;
-                plane.position.x += 100;
-                scene.add( plane );
-                
-                var geometry = new THREE.PlaneBufferGeometry( 256, 256 );
-                var material = new THREE.MeshBasicMaterial({map: texture});
-                var plane = new THREE.Mesh( geometry, material );
-                plane.position.x -= 400-128;
-                plane.position.y += 250-128;
-                scene.add( plane );
                 
 				draw();
-				
-                
-				window.addEventListener('keydown', function(event) {
-					if (event.keyCode == 38) { //Up
-						smoothInterpolation = true;
-                        interpolationStatusContainer.children[1].innerHTML = smoothInterpolation.toString();
-					}
-					if (event.keyCode == 40) { //Down
-						smoothInterpolation = false;
-                        interpolationStatusContainer.children[1].innerHTML = smoothInterpolation.toString();
-					}
-					if (event.keyCode == 37) { //Right
-						interval--;
-                        if (interval < 1)
-                            interval = 1;
-                        gridStatusContainer.children[1].innerHTML = interval.toString();
-					}
-					if (event.keyCode == 39) { //Left
-                        interval++;
-                        gridStatusContainer.children[1].innerHTML = interval.toString();
-					}
-					if (event.keyCode == 87) { //W
-                        wireframe = !wireframe;
-                        triangles.material.wireframe = wireframe;
-                        wireframeStatusContainer.children[1].innerHTML = wireframe.toString();
-					}
-                    if (event.keyCode == 32) { //Space
-                        console.log(lines.geometry.vertices)
-                        paused = !paused;
-					}
-				}, false);
                 
 			}
+            
+            function createGUI() {
+                var gui = new dat.GUI();
+                
+                var f1 = gui.addFolder('Outline generation');
+                
+                f1.add(this, 'interval');
+                f1.add(this, 'smoothInterpolation');
+                
+                var f2 = gui.addFolder('Display');
+                
+                var creatureToggle =  f2.add(this, 'displayCreature');
+                creatureToggle.onFinishChange(value => creature.visible = value);
+                
+                var skeletonToggle = f2.add(this, 'displaySkeleton');
+                skeletonToggle.onFinishChange(value => skeletonhelper.visible = value);
+                
+                var textureToggle = f2.add(this, 'displayTexture');
+                textureToggle.onFinishChange(value => textureDisplay.visible = value);
+                
+                var metaballToggle = f2.add(this, 'displayMetaballs');
+                metaballToggle.onFinishChange(value => metaballDisplay.visible = value);
+                
+                var outlineToggle = f2.add(this, 'displayOutline');
+                outlineToggle.onFinishChange(value => lines.visible = value);
+                
+                
+                var wireToggle = gui.add(this, 'wireframe');
+                wireToggle.onFinishChange(value => creature.material.wireframe = value);
+                
+                gui.add(this, 'paused');
+                gui.add(this, 'generateCreature');
+            }
 			
 			function draw() {
 				requestAnimationFrame(draw);
@@ -190,7 +130,8 @@
                 if (!paused) {
                     
                     for (var i = 0; i < skeleton.bones.length; i++) {
-                        //skeleton.bones[i].rotation.z = Math.sin(clock.getElapsedTime()*(i/0.23+1)/10.0);
+                        if (!skeleton.bones[i].doNotAnimate)
+                            skeleton.bones[i].rotation.z = Math.sin(clock.getElapsedTime()*(i/0.23+1)/10.0);
                     }
                     for (var i = 0; i < eyesArray.length; i++) {
                         var val = Math.cos(clock.getElapsedTime()*3+i*50);
@@ -206,6 +147,91 @@
                 
                 stats.end();
 			}
+            
+            function generateCreature() {
+                scene.remove(lines);
+                scene.remove(creature);
+                scene.remove(skeletonhelper);
+                scene.remove(metaballDisplay);
+                scene.remove(textureDisplay);
+                
+                var timer = new THREE.Clock();
+                
+                console.log("generating skeleton");
+                skeleton = generateSkeleton();
+                
+                console.log(timer.getElapsedTime());
+
+                console.log("generating metaballs");
+                metaballs = [];
+                generateMetaballs(metaballs, skeleton.bones[0]);
+                
+                console.log(timer.getElapsedTime());
+
+                console.log("generating polygon");
+                polygon = generatePolygon(metaballs);
+                lines = new THREE.Line( new THREE.Geometry, new THREE.LineBasicMaterial({color: 0xff00ff00}) );
+                lines.geometry.vertices = polygon;
+                lines.geometry.verticesNeedUpdate = true;
+                lines.position.z += 1;
+                lines.position.x += 100;
+                
+                scene.add(lines);
+                lines.visible = displayOutline;
+                
+                console.log(timer.getElapsedTime());
+
+                console.log("generating texture");
+                var lowestX = polygon[0].x, lowestY = polygon[0].y, highestX = polygon[0].x, highestY = polygon[0].y;
+                for (var i = 0; i < polygon.length; i++) {
+                    lowestX = Math.min(lowestX, polygon[i].x)
+                    lowestY = Math.min(lowestY, polygon[i].y)
+                    highestX = Math.max(highestX, polygon[i].x)
+                    highestY = Math.max(highestY, polygon[i].y)
+                }
+                console.log("upperlimit:", highestY);
+
+                texture = generateTexture(metaballs, [lowestX, lowestY, highestX-lowestX, highestY-lowestY]);
+                console.log(timer.getElapsedTime());
+
+                console.log("generating mesh");
+                creature = generateMesh(texture, polygon, metaballs, skeleton);
+                skeletonhelper = new THREE.SkeletonHelper( creature );
+
+                creature.position.y = -200;
+
+                scene.add(creature);
+                creature.visible = displayCreature;
+                
+                scene.add(skeletonhelper);
+                skeletonhelper.visible = displaySkeleton;
+                
+                console.log("m", timer.getElapsedTime());
+                
+                
+                var geometry = new THREE.PlaneBufferGeometry( 700, 700 );
+                var material = new THREE.ShaderMaterial({
+					uniforms: {
+                        metaballs: new THREE.Uniform(metaballs)
+                    },
+					vertexShader: vertexShader,
+					fragmentShader: fragmentShader.replace("METABALL_COUNT", metaballs.length),
+                    side: THREE.DoubleSide
+				});
+                metaballDisplay = new THREE.Mesh( geometry, material );
+                metaballDisplay.position.z = -1;
+                metaballDisplay.position.x += 100;
+                scene.add( metaballDisplay );
+                metaballDisplay.visible = displayMetaballs;
+                
+                var geometry = new THREE.PlaneBufferGeometry( 256, 256 );
+                var material = new THREE.MeshBasicMaterial({map: texture});
+                textureDisplay = new THREE.Mesh( geometry, material );
+                textureDisplay.position.x -= 400-128;
+                textureDisplay.position.y += 250-128;
+                scene.add( textureDisplay );
+                textureDisplay.visible = displayTexture;
+            }
             
             function generateSkeleton() {
 
@@ -284,7 +310,7 @@
                     spine.push(spineSegment);
                 }
                 skeleton.push(...spine);
-                
+                skeleton[skeleton.length-1].doNotAnimate = true;
                 
                 // EYES
                 var eyes = Math.floor(1+Math.random()*7);
@@ -373,17 +399,14 @@
                     boneLocation.z = bone.thickness / Math.sqrt(subballs);
                     parentLocation.z = bone.thickness / Math.sqrt(subballs);
                     
-                    //subballs = Math.ceil(boneLocation.distanceTo(parentLocation)/20);
+
                     var mult = 1.6;
                     if (bone.multiplier) {
                         mult = bone.multiplier;
                     }
-                    var thicknessMult = (mult)*Math.sqrt(1/(4*Math.log(mult)+1)); //Math.sqrt(mult)*
+                    var thicknessMult = (mult)*Math.sqrt(1/(4*Math.log(mult)+1));
                     thicknessMult = mult/Math.sqrt(2*Math.log(mult*mult)+1);
-                    //thicknessMult = 1/mult;
-                    //thicknessMult = 1;
-                    // blobby 0.25 = 3.69
-                    // blobby 0.5 = 3.485
+                    
                     subballs = Math.ceil(boneLocation.distanceTo(parentLocation)/(bone.thickness*2.97)*mult);
                     
                     
@@ -672,8 +695,6 @@
                     highestY = Math.max(highestY, polygon[i].y)
                 }
                 
-                console.log(lowestX)
-                
                 // adds points in uniform grid to fill out interior
                 var offset = highestY-lowestY;
                 for (var x = lowestX+0.01; x < highestX+offset; x+=20.1711) {
@@ -888,13 +909,15 @@
 			}
 		</script>
 		<script id="fragmentShader" type="x-shader/x-fragment">
-            uniform vec3 metaballs[METABALL_COUNT];
+            #define METABALL_C METABALL_COUNT
+        
+            uniform vec3 metaballs[METABALL_C];
             varying vec3 vertexPosition;
             void main() {
                 
                 float dist = 0.0;
                 float insideBall = 0.0;
-                for (int i = 0; i < METABALL_COUNT; i++) {
+                for (int i = 0; i < METABALL_C; i++) {
                     //dist += pow(metaballs[i].z, 2.0) / dot(metaballs[i].xy-vertexPosition.xy, metaballs[i].xy-vertexPosition.xy);
                     
                     float distance = dot(metaballs[i].xy-vertexPosition.xy, metaballs[i].xy-vertexPosition.xy);
@@ -1015,27 +1038,5 @@
 	</head>
 	<body onload="onLoad()">
 		<div id="myCanvasContainer"></div>
-        <div id="dataContainer">
-			<span>Vertex count:</span>
-			<span>0</span>
-            <div></div>
-            <span>Triangle count:</span>
-			<span>0</span>
-		</div>
-		<div id="gridStatusContainer">
-			<span>(left/right arrows) Grid interval:</span>
-			<span>10</span>
-		</div>
-		<div id="interpolationStatusContainer">
-			<span>(up/down arrows) Smooth interpolation:</span>
-			<span>true</span>
-		</div>
-		<div id="wireframeStatusContainer">
-			<span>(w) Wireframe:</span>
-			<span>false</span>
-		</div>
-		<div>
-			<span>(Space) Pause</span>
-		</div>
 	</body>
 </html>
