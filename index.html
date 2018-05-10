@@ -852,9 +852,7 @@
                 var texRenderTarget = new THREE.WebGLRenderTarget(256, 256);
                 var texScene = new THREE.Scene();
                 var texCamera = new THREE.OrthographicCamera( 256 / - 2, 256 / 2, 256 / 2, 256 / - 2, 1, 1000 );
-				texCamera.position.set(viewerPosition.x, viewerPosition.y, viewerPosition.z);
-				texCamera.up = new THREE.Vector3(0, 1, 0);
-				texCamera.lookAt(lookAt);
+				texCamera.position.set(0, 0, 30);
                 
                 // shader uniforms and metaball data
                 var colors = [];
