@@ -7,51 +7,67 @@
         <script type="text/javascript" src="http://rawgit.com/mrdoob/stats.js/master/build/stats.min.js"></script>
         <script type="text/javascript" src="dat.gui.min.js"></script>
 		<script type="text/javascript">
-		
+		  
+            // CAMERA
 			var renderer, scene, camera;
 			var lookAt = new THREE.Vector3(0.0, 0.0, 0.0);
 			var viewerPosition = new THREE.Vector3(0.0, 0.0, 30.0);
             
+            // GENERATION DATA
             var skeleton;
             var metaballs;
             var polygon;
             var texture;
             
+            // GENERATED CREATURE
             var displayCreature = true;
             var creature;
             
+            // GENERATED DATA DISPLAY
             var displaySkeleton = true;
             var skeletonhelper;
+            
             var displayTexture = true;
             var textureDisplay;
+            
             var displayMetaballs = true;
             var metaballDisplay;
-            var displayOutline = true;
+            
+            var displayOutline = false;
             var lines;
             
+            // EYES
             var eyesArray = [];
+            var eyeTexture = new THREE.TextureLoader().load( 'eye.png' );
             
+            // BASE TEXTURES
             var woodTexture = new THREE.TextureLoader().load( 'wood.jpeg' );
             var iceTexture = new THREE.TextureLoader().load( 'ice.jpeg' );
             
-            var eyeTexture = new THREE.TextureLoader().load( 'eye.png' );
-            
+            // OUTLINE GENERATION
             var interval = 5;
             var smoothInterpolation = true;
+            
+            // SETTINGS
             var wireframe = false;
             var paused = false;
             
+            // CLOCK
             var clock = new THREE.Clock();
             
             // INTERFACE
 			var stats = new Stats();
 			stats.showPanel( 1 ); // 0: fps, 1: ms, 2: mb, 3+: custom
+            
+            var grabbedBone = false;
 			
+            // TIME
 			function millis() {
 
 				return (new Date()).getTime();
 			}
 			
+            // UTILITY
 			function toRad(degree) {
 			
 				return Math.PI * 2 * degree / 360;
@@ -85,7 +101,47 @@
                 
 				draw();
                 
+                renderer.domElement.addEventListener( 'mousedown', grabBone, false );
+                renderer.domElement.addEventListener( 'mousemove', moveBone, false );
+                renderer.domElement.addEventListener( 'mouseup', event => grabbedBone = false, false );
 			}
+            
+            function grabBone(event) {
+                var worldX = event.offsetX-400;
+                var worldY = 800-event.offsetY-400;
+                if (skeleton) {
+                    for (var i = 0; i < skeleton.bones.length; i++) {
+                        var bone = skeleton.bones[i];
+                        var boneloc = bone.getWorldPosition();
+                        if (boneloc.distanceTo(new THREE.Vector3(worldX, worldY, 0)) < Math.max(bone.thickness, 20) ) {
+                            grabbedBone = bone;
+                            return;
+                        }
+                    }
+                }
+            }
+            
+            function moveBone(event) {
+                if (!grabbedBone)
+                    return;
+                
+                var worldX = event.offsetX-400;
+                var worldY = 800-event.offsetY-400;
+                
+                if (grabbedBone.parent.isBone) {
+                    var grabbedBoneLoc = grabbedBone.getWorldPosition();
+                    
+                    var vecToBone = grabbedBoneLoc.clone().sub(grabbedBone.parent.getWorldPosition());
+                    var vecToMouse = new THREE.Vector3(worldX, worldY, 0).sub(grabbedBone.parent.getWorldPosition());
+                    
+                    var angle = Math.atan2(vecToBone.x*vecToMouse.y-vecToBone.y*vecToMouse.x, vecToBone.x*vecToBone.x+vecToMouse.y*vecToMouse.y); //vecToBone.angleTo(vecToMouse); 
+                    console.log(angle);
+                    grabbedBone.parent.rotation.z += angle;
+                } else {
+                    grabbedBone.position.x = worldX;
+                    grabbedBone.position.y = worldY;
+                }
+            }
             
             function createGUI() {
                 var gui = new dat.GUI();
@@ -198,7 +254,7 @@
                 creature = generateMesh(texture, polygon, metaballs, skeleton);
                 skeletonhelper = new THREE.SkeletonHelper( creature );
 
-                creature.position.y = -200;
+                //creature.position.y = -200;
 
                 scene.add(creature);
                 creature.visible = displayCreature;
@@ -294,6 +350,7 @@
                 var skeleton = [];
                 var spine = [];
                 var rootBone = new THREE.Bone();
+                rootBone.thickness = 0;
                 spine.push(rootBone);
                 
                 for (var i = 1; i < spineSegments; i++) {
@@ -383,9 +440,6 @@
                     }
                 }
                 
-                
-                
-                console.log(skeleton);
                 return new THREE.Skeleton(skeleton);
             }
             
