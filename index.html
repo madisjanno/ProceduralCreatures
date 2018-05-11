@@ -48,6 +48,10 @@
             var interval = 5;
             var smoothInterpolation = true;
             
+            // MESH GENERATION
+            var internalVertices = true;
+            var internalVertexDistance = 20;
+            
             // SETTINGS
             var wireframe = false;
             var paused = true;
@@ -163,6 +167,11 @@
                 f1.add(this, 'interval');
                 f1.add(this, 'smoothInterpolation');
                 
+                var f_mesh = gui.addFolder('Mesh generation');
+                
+                f_mesh.add(this, 'internalVertices');
+                f_mesh.add(this, 'internalVertexDistance');
+                
                 var f2 = gui.addFolder('Display');
                 
                 var creatureToggle =  f2.add(this, 'displayCreature');
@@ -208,7 +217,7 @@
                 
                 if (!paused) {
                     
-                    for (var i = 0; i < skeleton.bones.length; i++) {
+                    for (var i = 1; i < skeleton.bones.length; i++) {
                         if (!skeleton.bones[i].doNotAnimate)
                             skeleton.bones[i].rotation.z = Math.sin(clock.getElapsedTime()*(i/0.23+1)/10.0);
                     }
@@ -431,7 +440,7 @@
                 
                 
                 // SPINE
-                var spineSegments = Math.round(2+Math.random()*3);
+                var spineSegments = Math.round(3+Math.random()*3);
                 
                 var skeleton = [];
                 var spine = [];
@@ -493,7 +502,7 @@
                             limbSegmentThicknesses.push(5+Math.random()*10);
                             limbSegmentMultipliers.push(1+Math.random()*0.6);
                         }
-                        limbSegmentThicknesses[0] = 10;
+                        limbSegmentThicknesses[0] = 5;
                         
                         for (var dir = -1; dir < 2; dir+=2) {
                             var limb = [];
@@ -554,6 +563,7 @@
                     parentLocation.z = bone.thickness*thicknessMult;
                     
                     for (var i = 0; i <= subballs; i++) {
+                        
                         var alpha = i/subballs;
                         var ball = boneLocation.clone().lerp(parentLocation, alpha);
                         ball.boneID = skeleton.bones.indexOf(parent);
@@ -835,15 +845,23 @@
                     highestY = Math.max(highestY, polygon[i].y)
                 }
                 
+                console.log(points.length);
                 // adds points in uniform grid to fill out interior
-                var offset = highestY-lowestY;
-                for (var x = lowestX+0.01; x < highestX+offset; x+=20.1711) {
-                    for (var y = lowestY+0.01; y < highestY; y+=20.1711) {
-                        var skew = (y-lowestY)/2;
-                        triangles.geometry.vertices.push(new THREE.Vector3(x-skew, y, 0));
-                        points.push([x-skew, y])
+                if (internalVertices) {
+                    var offset = highestY-lowestY;
+                    for (var x = lowestX+0.01; x < highestX+offset; x+=internalVertexDistance+0.1711) {
+                        for (var y = lowestY+0.01; y < highestY; y+=internalVertexDistance+0.1711) {
+                            var skew = (y-lowestY)/2;
+                            if (polygonContainsVertex({x: x-skew, y: y}, polygon)) {
+                                triangles.geometry.vertices.push(new THREE.Vector3(x-skew, y, 0));
+                                points.push([x-skew, y])
+                            }
+                            //triangles.geometry.vertices.push(new THREE.Vector3(x-skew, y, 0));
+                            //points.push([x-skew, y])
+                        }
                     }
                 }
+                console.log(points.length);
                 
                 var edges = [];
                 for (var i = 0; i < polygon.length; i++) {
@@ -869,7 +887,7 @@
                 
                 triangles.geometry.computeVertexNormals();
                 
-                // skinning
+                // skinning and z
                 triangles.add(skeleton.bones[0]);
                 for (var i = 0; i < triangles.geometry.vertices.length; i++) {
                     var data = calculateSkinningData(triangles.geometry.vertices[i], metaballs, skeleton);
@@ -882,6 +900,26 @@
                 triangles.bind( skeleton );
                 
                 return triangles;
+            }
+            
+            function polygonContainsVertex(vertex, polygon) {
+                var i = 0, j = polygon.length - 1;
+                var contains = false;
+                
+                for (var i = 0, j = 1; i < polygon.length; i++) {
+                    j = (i+1) % polygon.length;
+                    var a = polygon[i];
+                    var b = polygon[j];
+                    if (a.y < b.y) {
+                        a = polygon[j];
+                        b = polygon[i];
+                    }
+                    if (vertex.y < a.y && vertex.y >= b.y) {
+                        if (vertex.x < (b.x-a.x)/(b.y-a.y)*(vertex.y-a.y)+a.x )
+                            contains = !contains;
+                    }
+                }
+                return contains;
             }
             
             function nextVertex(dir, topLeft, topRight, bottomLeft, bottomRight) {
