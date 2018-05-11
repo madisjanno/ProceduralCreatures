@@ -50,7 +50,7 @@
             
             // SETTINGS
             var wireframe = false;
-            var paused = false;
+            var paused = true;
             
             // CLOCK
             var clock = new THREE.Clock();
@@ -60,6 +60,19 @@
 			stats.showPanel( 1 ); // 0: fps, 1: ms, 2: mb, 3+: custom
             
             var grabbedBone = false;
+            
+            // PERFORMANCE TEST
+            var numberOfTests = 100;
+            var useTestingSkeleton = false;
+            var testingSkeletonSegments = 1;
+            var testingSkeletonLength = 60;
+            var testingSkeletonThickness = 20;
+            
+            var skeletonTimes = [];
+            var metaballTimes = [];
+            var outlineTimes = [];
+            var textureTimes = [];
+            var meshTimes = [];
 			
             // TIME
 			function millis() {
@@ -134,8 +147,7 @@
                     var vecToBone = grabbedBoneLoc.clone().sub(grabbedBone.parent.getWorldPosition());
                     var vecToMouse = new THREE.Vector3(worldX, worldY, 0).sub(grabbedBone.parent.getWorldPosition());
                     
-                    var angle = Math.atan2(vecToBone.x*vecToMouse.y-vecToBone.y*vecToMouse.x, vecToBone.x*vecToBone.x+vecToMouse.y*vecToMouse.y); //vecToBone.angleTo(vecToMouse); 
-                    console.log(angle);
+                    var angle = Math.atan2(vecToBone.x*vecToMouse.y-vecToBone.y*vecToMouse.x, vecToBone.x*vecToBone.x+vecToMouse.y*vecToMouse.y);
                     grabbedBone.parent.rotation.z += angle;
                 } else {
                     grabbedBone.position.x = worldX;
@@ -167,6 +179,17 @@
                 
                 var outlineToggle = f2.add(this, 'displayOutline');
                 outlineToggle.onFinishChange(value => lines.visible = value);
+                
+                var f3 = gui.addFolder('Performance Test');
+                f3.add(this, 'useTestingSkeleton');
+                    
+                var f4 = f3.addFolder('Testing Skeleton');
+                f4.add(this, 'testingSkeletonSegments').name("segments");
+                f4.add(this, 'testingSkeletonLength').name("length");
+                f4.add(this, 'testingSkeletonThickness').name("thickness");
+                
+                f3.add(this, 'numberOfTests');
+                f3.add(this, 'performanceTest');
                 
                 
                 var wireToggle = gui.add(this, 'wireframe');
@@ -204,28 +227,57 @@
                 stats.end();
 			}
             
+            function performanceTest() {
+                skeletonTimes = [];
+                metaballTimes = [];
+                outlineTimes = [];
+                textureTimes = [];
+                meshTimes = [];
+                for (var i = 0; i < numberOfTests; i++) {
+                    generateCreature();
+                }
+                function calculateAverage (arr) {
+                    var sum = 0;
+                    for (var i = 0; i < numberOfTests; i++) {
+                        sum += arr[i];
+                    }
+                    return sum / numberOfTests;
+                }
+
+                console.log("skeleton",calculateAverage(skeletonTimes)*1000);
+                console.log("metaball",calculateAverage(metaballTimes)*1000);
+                console.log("outline",calculateAverage(outlineTimes)*1000);
+                console.log("texture",calculateAverage(textureTimes)*1000);
+                console.log("mesh",calculateAverage(meshTimes)*1000);
+            }
+            
             function generateCreature() {
-                scene.remove(lines);
                 scene.remove(creature);
+                scene.remove(lines);
                 scene.remove(skeletonhelper);
                 scene.remove(metaballDisplay);
                 scene.remove(textureDisplay);
                 
                 var timer = new THREE.Clock();
+                timer.getElapsedTime();
                 
+                // SKELETON
                 console.log("generating skeleton");
                 skeleton = generateSkeleton();
+                skeletonTimes.push(timer.getElapsedTime());
                 
-                console.log(timer.getElapsedTime());
-
+                // METABALLS
                 console.log("generating metaballs");
                 metaballs = [];
                 generateMetaballs(metaballs, skeleton.bones[0]);
                 
-                console.log(timer.getElapsedTime());
-
+                metaballTimes.push(timer.getElapsedTime());
+                
+                // OUTLINE
                 console.log("generating polygon");
                 polygon = generatePolygon(metaballs);
+                outlineTimes.push(timer.getElapsedTime());
+                
                 lines = new THREE.Line( new THREE.Geometry, new THREE.LineBasicMaterial({color: 0xff00ff00}) );
                 lines.geometry.vertices = polygon;
                 lines.geometry.verticesNeedUpdate = true;
@@ -235,9 +287,9 @@
                 scene.add(lines);
                 lines.visible = displayOutline;
                 
-                console.log(timer.getElapsedTime());
-
+                // TEXTURE
                 console.log("generating texture");
+                // bounding box of mesh
                 var lowestX = polygon[0].x, lowestY = polygon[0].y, highestX = polygon[0].x, highestY = polygon[0].y;
                 for (var i = 0; i < polygon.length; i++) {
                     lowestX = Math.min(lowestX, polygon[i].x)
@@ -245,26 +297,22 @@
                     highestX = Math.max(highestX, polygon[i].x)
                     highestY = Math.max(highestY, polygon[i].y)
                 }
-                console.log("upperlimit:", highestY);
-
                 texture = generateTexture(metaballs, [lowestX, lowestY, highestX-lowestX, highestY-lowestY]);
-                console.log(timer.getElapsedTime());
-
+                textureTimes.push(timer.getElapsedTime());
+                
+                // MESH
                 console.log("generating mesh");
                 creature = generateMesh(texture, polygon, metaballs, skeleton);
+                meshTimes.push(timer.getElapsedTime());
+                
                 skeletonhelper = new THREE.SkeletonHelper( creature );
-
-                //creature.position.y = -200;
-
                 scene.add(creature);
                 creature.visible = displayCreature;
                 
                 scene.add(skeletonhelper);
                 skeletonhelper.visible = displaySkeleton;
                 
-                console.log("m", timer.getElapsedTime());
-                
-                
+                // METABALL DISPLAY
                 var geometry = new THREE.PlaneBufferGeometry( 700, 700 );
                 var material = new THREE.ShaderMaterial({
 					uniforms: {
@@ -280,6 +328,7 @@
                 scene.add( metaballDisplay );
                 metaballDisplay.visible = displayMetaballs;
                 
+                // TEXTURE DISPLAY
                 var geometry = new THREE.PlaneBufferGeometry( 256, 256 );
                 var material = new THREE.MeshBasicMaterial({map: texture});
                 textureDisplay = new THREE.Mesh( geometry, material );
@@ -290,7 +339,21 @@
             }
             
             function generateSkeleton() {
-
+                if (useTestingSkeleton) {
+                    var bone = new THREE.Bone();
+                    bone.thickness = 0;
+                    var bones = [bone];
+                    
+                    for (var i = 0; i < testingSkeletonSegments; i++) {
+                        bone = new THREE.Bone();
+                        bone.thickness = testingSkeletonThickness;
+                        bone.position.x = testingSkeletonLength;
+                        
+                        bones[bones.length-1].add(bone);
+                        bones.push(bone);
+                    }
+                    return new THREE.Skeleton(bones);
+                }
                 
                 // -- DEBUG
                 /*
@@ -298,20 +361,42 @@
                     bone.thickness = 20;
                 
                 var b2 = new THREE.Bone();
-                    b2.thickness = 20;
+                    b2.thickness = 10;
                     bone.add(b2);
-                    b2.position.x = 700;
+                    b2.position.y = 70;
                     b2.multiplier = 1.0;
                     b2.color = new THREE.Vector3(1.0, 0.0, 0.0);
                 
                 var b3 = new THREE.Bone();
-                    b3.thickness = 20;
+                    b3.thickness = 5;
                     bone.add(b3);
-                    b3.position.y = 700;
-                    b3.color = new THREE.Vector3(1.0, 0.0, 0.0);
-                    b3.multiplier = 1.6;
+                    b3.position.x = 40;
+                    b3.color = new THREE.Vector3(0.0, 0.0, 1.0);
+                    b3.multiplier = 1.0;
                 
-                var skeleton = new THREE.Skeleton([bone, b2, b3]);
+                var b4 = new THREE.Bone();
+                    b4.thickness = 25;
+                    b3.add(b4);
+                    b4.position.x = 80;
+                    b4.color = new THREE.Vector3(0.0, 0.0, 1.0);
+                    b4.multiplier = 1.0;
+                
+                var b5 = new THREE.Bone();
+                    b5.thickness = 5;
+                    bone.add(b5);
+                    b5.position.x = -40;
+                    b5.color = new THREE.Vector3(0.0, 0.0, 1.0);
+                    b5.multiplier = 1.6;
+                
+                var b6 = new THREE.Bone();
+                    b6.thickness = 25;
+                    b5.add(b6);
+                    b6.position.x = -80;
+                    b6.color = new THREE.Vector3(0.0, 0.0, 1.0);
+                    b6.multiplier = 1.6;
+                
+                
+                var skeleton = new THREE.Skeleton([bone, b2, b3, b4, b5, b6]);
                 return skeleton;
                 */
                 /*
@@ -344,6 +429,7 @@
                 // -- DEBUG
                 
                 
+                
                 // SPINE
                 var spineSegments = Math.round(2+Math.random()*3);
                 
@@ -373,7 +459,6 @@
                 var eyes = Math.floor(1+Math.random()*7);
                 var eyeSize = skeleton[skeleton.length-1].thickness*(0.5+Math.random()*0.5);
                 var eyeDistance = skeleton[skeleton.length-1].thickness - eyeSize/2;
-                console.log("eye", eyeSize)
                     
                 var eyeMesh = new THREE.Mesh( new THREE.PlaneGeometry( eyeSize, eyeSize ), new THREE.MeshBasicMaterial({map: eyeTexture, side: THREE.DoubleSide, transparent:true, opacity: 0.8}) );
                 
@@ -397,14 +482,14 @@
                 // LIMBS
                 for (var i = 0; i < spineSegments; i++) {
                     if (Math.random() > 0.5) {
-                        var limbSegments = Math.round(2+Math.random()*3);
+                        var limbSegments = Math.round(2+Math.random()*2);
                         
                         var limbSegmentLengths = [];
                         var limbSegmentThicknesses = [];
                         var limbSegmentMultipliers = [];
                         
                         for (var j = 0; j < limbSegments; j++) {
-                            limbSegmentLengths.push(50+Math.random()*20);
+                            limbSegmentLengths.push(50+Math.random()*30);
                             limbSegmentThicknesses.push(5+Math.random()*10);
                             limbSegmentMultipliers.push(1+Math.random()*0.6);
                         }
@@ -419,6 +504,7 @@
                             else
                                 limbJoint.position.x = dir*spine[i+1].thickness;
                             limbJoint.thickness = limbSegmentThicknesses[0];
+                            limbJoint.color = new THREE.Vector3(Math.random(), Math.random(), Math.random());
                             limb.push(limbJoint);
                             spine[i].add(limbJoint);
                             
@@ -471,8 +557,8 @@
                         var alpha = i/subballs;
                         var ball = boneLocation.clone().lerp(parentLocation, alpha);
                         ball.boneID = skeleton.bones.indexOf(parent);
-                        if (alpha < 0.1)
-                            ball.boneID = skeleton.bones.indexOf(bone);
+                        //if (alpha < 0.1)
+                        //    ball.boneID = skeleton.bones.indexOf(bone);
                         
                         if (bone.color) {
                             if (parent.color) {
@@ -780,8 +866,6 @@
                     triangles.geometry.faces.push( new THREE.Face3(faces[i][0],faces[i][1],faces[i][2]) );
                     triangles.geometry.faceVertexUvs[0].push([mapUV(faces[i][0]),mapUV(faces[i][1]),mapUV(faces[i][2])]);
                 }
-                
-                console.log(triangles.geometry.faceVertexUvs)
                 
                 triangles.geometry.computeVertexNormals();
                 
