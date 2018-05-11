@@ -502,16 +502,19 @@
                             limbSegmentThicknesses.push(5+Math.random()*10);
                             limbSegmentMultipliers.push(1+Math.random()*0.6);
                         }
-                        limbSegmentThicknesses[0] = 5;
+                        limbSegmentThicknesses[0] = 0;
                         
                         for (var dir = -1; dir < 2; dir+=2) {
                             var limb = [];
                             
                             var limbJoint = new THREE.Bone();
-                            if (i > 0)
-                                limbJoint.position.x = dir*spine[i].thickness;
-                            else
-                                limbJoint.position.x = dir*spine[i+1].thickness;
+
+                            if (i < spineSegments-1) {
+                                limbJoint.position.x = dir*Math.max(spine[i].thickness, spine[i+1].thickness)*1.1;
+                            } else {
+                                limbJoint.position.x = dir*spine[i].thickness*1.1;
+                            }
+                            
                             limbJoint.thickness = limbSegmentThicknesses[0];
                             limbJoint.color = new THREE.Vector3(Math.random(), Math.random(), Math.random());
                             limb.push(limbJoint);
