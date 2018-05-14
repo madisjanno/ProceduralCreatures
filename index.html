@@ -288,7 +288,8 @@
                 outlineTimes.push(timer.getElapsedTime());
                 
                 lines = new THREE.Line( new THREE.Geometry, new THREE.LineBasicMaterial({color: 0xff00ff00}) );
-                lines.geometry.vertices = polygon;
+                lines.geometry.vertices = polygon.slice(0);
+                lines.geometry.vertices.push(lines.geometry.vertices[0]);
                 lines.geometry.verticesNeedUpdate = true;
                 lines.position.z += 1;
                 lines.position.x += 100;
