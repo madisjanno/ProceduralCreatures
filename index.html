@@ -6,6 +6,7 @@
         <script type="text/javascript" src="bundle.js"></script>
         <script type="text/javascript" src="http://rawgit.com/mrdoob/stats.js/master/build/stats.min.js"></script>
         <script type="text/javascript" src="dat.gui.min.js"></script>
+        <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/seedrandom/2.4.3/seedrandom.min.js"></script>
 		<script type="text/javascript">
 		  
             // CAMERA AND SCENE
@@ -48,6 +49,10 @@
             // BASE TEXTURES
             var woodTexture = new THREE.TextureLoader().load( 'wood.jpeg' );
             var iceTexture = new THREE.TextureLoader().load( 'ice.jpeg' );
+            
+            // SKELETON GENERATION
+            var regenerateSeed = true;
+            var seed = "Seed";
             
             // OUTLINE GENERATION
             var interval = 5;
@@ -217,6 +222,8 @@
                 var wireToggle = gui.add(this, 'wireframe');
                 wireToggle.onFinishChange(value => creature.material.wireframe = value);
                 
+                gui.add(this, 'regenerateSeed');
+                gui.add(this, 'seed').listen();
                 gui.add(this, 'paused');
                 gui.add(this, 'generateCreature');
             }
@@ -376,7 +383,22 @@
                 }
                 
                 // SPINE
-                var spineSegments = Math.round(3+Math.random()*3);
+                if (regenerateSeed) {
+                    var symbols = "abcdefghijklmnopqrstuvwxyz0123456789";
+                    seed = "";
+                    for (var i = 0; i < 10; i++) {
+                        seed += symbols[Math.floor(Math.random()*symbols.length)];
+                    }
+                }
+                
+                var obj = Math.seedrandom(seed, { pass: function(prng, seed) {
+                    return { random: prng, seed: seed };
+                }});
+                
+                var random = obj.random;
+                console.log(obj.seed);
+                
+                var spineSegments = Math.round(3+random()*3);
                 
                 var skeleton = [];
                 var spine = [];
@@ -387,12 +409,12 @@
                 for (var i = 1; i < spineSegments; i++) {
                     var spineSegment = new THREE.Bone();
                     
-                    spineSegment.thickness = 10+Math.random()*30;
-                    spineSegment.position.y = 50+Math.random()*50;
-                    var a = Math.random();
+                    spineSegment.thickness = 10+random()*30;
+                    spineSegment.position.y = 50+random()*50;
+                    var a = random();
                     spineSegment.texture_weights = new THREE.Vector4(a, 1.0-a, 0.0, 0.0);
-                    spineSegment.color = new THREE.Vector3(Math.random(), Math.random(), Math.random());
-                    spineSegment.multiplier = 1+Math.random()*0.6;
+                    spineSegment.color = new THREE.Vector3(random(), random(), random());
+                    spineSegment.multiplier = 1+random()*0.6;
                     
                     spine[i-1].add(spineSegment);
                     spine.push(spineSegment);
@@ -401,8 +423,8 @@
                 skeleton[skeleton.length-1].doNotAnimate = true;
                 
                 // EYES
-                var eyes = Math.floor(1+Math.random()*7);
-                var eyeSize = skeleton[skeleton.length-1].thickness*(0.5+Math.random()*0.5);
+                var eyes = Math.floor(1+random()*7);
+                var eyeSize = skeleton[skeleton.length-1].thickness*(0.5+random()*0.5);
                 var eyeDistance = skeleton[skeleton.length-1].thickness - eyeSize/2;
                     
                 var eyeMesh = new THREE.Mesh( new THREE.PlaneGeometry( eyeSize, eyeSize ), new THREE.MeshBasicMaterial({map: eyeTexture, side: THREE.DoubleSide, transparent:true, opacity: 0.8}) );
@@ -427,17 +449,17 @@
                 
                 // LIMBS
                 for (var i = 0; i < spineSegments; i++) {
-                    if (Math.random() > 0.5) {
-                        var limbSegments = Math.round(2+Math.random()*2);
+                    if (random() > 0.5) {
+                        var limbSegments = Math.round(2+random()*2);
                         
                         var limbSegmentLengths = [];
                         var limbSegmentThicknesses = [];
                         var limbSegmentMultipliers = [];
                         
                         for (var j = 0; j < limbSegments; j++) {
-                            limbSegmentLengths.push(50+Math.random()*30);
-                            limbSegmentThicknesses.push(5+Math.random()*10);
-                            limbSegmentMultipliers.push(1+Math.random()*0.6);
+                            limbSegmentLengths.push(50+random()*30);
+                            limbSegmentThicknesses.push(5+random()*10);
+                            limbSegmentMultipliers.push(1+random()*0.6);
                         }
                         limbSegmentThicknesses[0] = 0;
                         
@@ -464,7 +486,7 @@
 
                                 limbSegment.thickness = limbSegmentThicknesses[j];
                                 limbSegment.position.x = dir*limbSegmentLengths[j];
-                                limbSegment.color = new THREE.Vector3(Math.random(), Math.random(), Math.random());
+                                limbSegment.color = new THREE.Vector3(random(), random(), random());
                                 limbSegment.multiplier = limbSegmentMultipliers[j];
 
                                 limb[j-1].add(limbSegment);
