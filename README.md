@@ -3,7 +3,9 @@
 Thesis project by Madis Janno. Generates a variety of 2D creatures
 
 ## How to run
-Open index.html in a browser.
+Open index.html in a browser.  
+or  
+https://madisjanno.github.io/ProceduralCreatures/  
 
 ## Included Files
 *bundle.js* contains the cdt2d library packed with browserify.  
