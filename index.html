@@ -530,15 +530,19 @@
                     // Amount of placed balls.
                     var subballs = Math.ceil(boneLocation.distanceTo(parentLocation)/(bone.thickness*2.97)*mult);
                     
-                    boneLocation.z = bone.thickness*thicknessMult;
-                    parentLocation.z = bone.thickness*thicknessMult;
                     
                     // Places balls at both ends of the bone.
                     for (var i = 0; i <= subballs; i++) {
+                        var thickness = bone.thickness*thicknessMult;
                         
                         var alpha = i/subballs;
+                        
+                        if (i == subballs && parent.parent !== null)
+                            alpha = (i-0.5)/subballs;
+                        
                         var ball = boneLocation.clone().lerp(parentLocation, alpha);
                         ball.boneID = skeleton.bones.indexOf(parent);
+                        ball.z = thickness;
                         
                         if (bone.color) {
                             if (parent.color) {
@@ -1118,6 +1122,8 @@
                 vec2 hgap = vec2(0.1, 0.0);
                 vec2 vgap = vec2(0.0, 0.1);
                 
+                float sum = 0.0;
+                
                 for (int i = 0; i < METABALL_C; i++) {
                     float distance = dot(metaballs[i].xy-alteredPosition.xy-hgap, metaballs[i].xy-alteredPosition.xy-hgap);
                     float val = 1.0*exp(blobbyness*distance/(metaballs[i].z*metaballs[i].z)-blobbyness)*metaballs[i].z;
@@ -1138,14 +1144,17 @@
                     val = 1.0*exp(blobbyness*distance/(metaballs[i].z*metaballs[i].z)-blobbyness)*metaballs[i].z;
                     
                     top += val;
+                    
+                    distance = dot(metaballs[i].xy-alteredPosition.xy, metaballs[i].xy-alteredPosition.xy);
+                    val = 1.0*exp(blobbyness*distance/(metaballs[i].z*metaballs[i].z)-blobbyness);
+                    sum += val;
                 }
+                
                 
                 float h = (right-left);
                 float v = (top-bottom);
                 
-                float average = ((top+bottom+left+right)/4.0-1.0)*0.02;
-                
-                vec3 hvz = normalize(vec3(h,v,average))+vec3(0.5,0.5,0.5);
+                vec3 hvz = normalize(vec3(h,v,(sum-1.0)*0.7))+vec3(0.5,0.5,0.5);
                 
                 //hvz = vec3(vec2(h,v)+vec2(0.5,0.5), 1.0);
                 
