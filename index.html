@@ -818,7 +818,7 @@
             // Generates mesh, determines z's and skinning data.
             function generateMesh(textures, polygon, metaballs, skeleton) {
                 
-                var triangles = new THREE.SkinnedMesh( new THREE.Geometry, new THREE.MeshStandardMaterial({wireframe: wireframe, skinning:true, map: textures[0], normalMap: textures[1], metalness: 0.0, roughness: 0.20}) );
+                var triangles = new THREE.SkinnedMesh( new THREE.Geometry, new THREE.MeshStandardMaterial({wireframe: wireframe, skinning:true, map: textures[0], normalMap: textures[1], metalness: 0.0, roughness: 0.9}) );
                 triangles.geometry.vertices = polygon.slice(0);
 
                 // vertices
